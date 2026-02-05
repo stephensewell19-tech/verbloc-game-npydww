@@ -200,7 +200,23 @@ export const Modal: React.FC<ModalProps> = ({
               {message}
             </Text>
           )}
-          {children && <View style={modalStyles.childrenContainer}>{children}</View>}
+          {children && (
+            <>
+              <View style={modalStyles.childrenContainer}>{children}</View>
+              <View style={modalStyles.buttons}>
+                <TouchableOpacity
+                  style={[
+                    modalStyles.button,
+                    modalStyles.confirmButton,
+                    { backgroundColor: getTypeColor() },
+                  ]}
+                  onPress={onClose}
+                >
+                  <Text style={modalStyles.confirmButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
           {!children && (
             <View style={modalStyles.buttons}>
               {onConfirm && (
@@ -262,6 +278,7 @@ const modalStyles = StyleSheet.create({
   },
   childrenContainer: {
     marginTop: 8,
+    marginBottom: 16,
   },
   buttons: {
     flexDirection: "row",

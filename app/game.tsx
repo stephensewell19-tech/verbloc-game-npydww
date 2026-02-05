@@ -60,6 +60,8 @@ export default function GameScreen() {
   const targetScore = params.targetScore ? parseInt(params.targetScore as string) : 500;
   const gridSize = params.gridSize ? parseInt(params.gridSize as string) : 7;
   const turnLimit = params.turnLimit ? parseInt(params.turnLimit as string) : 20;
+  const boardName = params.boardName as string | undefined;
+  const difficulty = (params.difficulty as 'Easy' | 'Medium' | 'Hard' | 'Special') || 'Medium';
   
   const winCondition: WinCondition = {
     type: puzzleMode === 'score_target' ? 'score' : puzzleMode,
@@ -375,6 +377,36 @@ export default function GameScreen() {
     }
   }
 
+  function getDifficultyColor(): string {
+    switch (difficulty) {
+      case 'Easy':
+        return '#10B981';
+      case 'Medium':
+        return '#F59E0B';
+      case 'Hard':
+        return '#EF4444';
+      case 'Special':
+        return '#8B5CF6';
+      default:
+        return colors.primary;
+    }
+  }
+
+  function getDifficultyIcon(): string {
+    switch (difficulty) {
+      case 'Easy':
+        return '🌱';
+      case 'Medium':
+        return '⚡';
+      case 'Hard':
+        return '🔥';
+      case 'Special':
+        return '⭐';
+      default:
+        return '📊';
+    }
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -439,6 +471,19 @@ export default function GameScreen() {
       />
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Board Name and Difficulty */}
+        {boardName && (
+          <View style={[styles.boardHeader, { borderLeftColor: getDifficultyColor() }]}>
+            <View style={styles.boardHeaderContent}>
+              <Text style={styles.boardHeaderName}>{boardName}</Text>
+              <View style={[styles.boardHeaderDifficulty, { backgroundColor: getDifficultyColor() }]}>
+                <Text style={styles.boardHeaderDifficultyIcon}>{getDifficultyIcon()}</Text>
+                <Text style={styles.boardHeaderDifficultyText}>{difficulty}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Score and Progress */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
@@ -789,6 +834,40 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  boardHeader: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+  },
+  boardHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  boardHeaderName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    flex: 1,
+  },
+  boardHeaderDifficulty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  boardHeaderDifficultyIcon: {
+    fontSize: 14,
+  },
+  boardHeaderDifficultyText: {
+    fontSize: 12,
+    fontWeight: 'bold',
     color: '#FFFFFF',
   },
 });

@@ -30,6 +30,7 @@ export default function BoardSelectScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | 'All'>('All');
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [showDifficultyInfo, setShowDifficultyInfo] = useState(false);
 
   useEffect(() => {
     loadBoards();
@@ -160,6 +161,8 @@ export default function BoardSelectScreen() {
       params: {
         mode: mode.toLowerCase(),
         boardId: board.id,
+        boardName: board.name,
+        difficulty: board.difficulty,
         puzzleMode: board.puzzleMode,
         gridSize: board.gridSize.toString(),
         targetScore: targetScore.toString(),
@@ -178,15 +181,45 @@ export default function BoardSelectScreen() {
   const getDifficultyColor = (difficulty: Difficulty): string => {
     switch (difficulty) {
       case 'Easy':
-        return '#10B981';
+        return '#10B981'; // Green
       case 'Medium':
-        return '#F59E0B';
+        return '#F59E0B'; // Amber
       case 'Hard':
-        return '#EF4444';
+        return '#EF4444'; // Red
       case 'Special':
-        return '#8B5CF6';
+        return '#8B5CF6'; // Purple
       default:
         return colors.primary;
+    }
+  };
+
+  const getDifficultyIcon = (difficulty: Difficulty): string => {
+    switch (difficulty) {
+      case 'Easy':
+        return '🌱'; // Seedling
+      case 'Medium':
+        return '⚡'; // Lightning
+      case 'Hard':
+        return '🔥'; // Fire
+      case 'Special':
+        return '⭐'; // Star
+      default:
+        return '📊';
+    }
+  };
+
+  const getDifficultyDescription = (difficulty: Difficulty): string => {
+    switch (difficulty) {
+      case 'Easy':
+        return 'Perfect for beginners and casual play';
+      case 'Medium':
+        return 'Requires planning and strategy';
+      case 'Hard':
+        return 'Designed for mastery and replay';
+      case 'Special':
+        return 'Experimental and event-specific';
+      default:
+        return '';
     }
   };
 
@@ -240,6 +273,16 @@ export default function BoardSelectScreen() {
               />
             </TouchableOpacity>
           ),
+          headerRight: () => (
+            <TouchableOpacity onPress={() => setShowDifficultyInfo(true)} style={styles.headerButton}>
+              <IconSymbol
+                ios_icon_name="info.circle"
+                android_material_icon_name="info"
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -248,12 +291,14 @@ export default function BoardSelectScreen() {
           {(['All', 'Easy', 'Medium', 'Hard', 'Special'] as const).map((difficulty) => {
             const isSelected = selectedDifficulty === difficulty;
             const difficultyText = difficulty;
+            const difficultyIcon = difficulty !== 'All' ? getDifficultyIcon(difficulty as Difficulty) : '🎮';
             return (
               <TouchableOpacity
                 key={difficulty}
                 style={[styles.filterButton, isSelected && styles.filterButtonActive]}
                 onPress={() => setSelectedDifficulty(difficulty)}
               >
+                <Text style={styles.filterIcon}>{difficultyIcon}</Text>
                 <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>
                   {difficultyText}
                 </Text>
@@ -262,6 +307,14 @@ export default function BoardSelectScreen() {
           })}
         </ScrollView>
       </View>
+
+      {selectedDifficulty !== 'All' && (
+        <View style={styles.difficultyInfoBanner}>
+          <Text style={styles.difficultyInfoText}>
+            {getDifficultyDescription(selectedDifficulty as Difficulty)}
+          </Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -300,6 +353,7 @@ export default function BoardSelectScreen() {
 
           {boards.map((board) => {
             const difficultyColor = getDifficultyColor(board.difficulty);
+            const difficultyIcon = getDifficultyIcon(board.difficulty);
             const puzzleModeLabel = getPuzzleModeLabel(board.puzzleMode);
             const puzzleModeDescription = getPuzzleModeDescription(board.puzzleMode);
             const gridSizeText = `${board.gridSize}×${board.gridSize}`;
@@ -308,7 +362,7 @@ export default function BoardSelectScreen() {
             return (
               <TouchableOpacity
                 key={board.id}
-                style={styles.boardCard}
+                style={[styles.boardCard, { borderLeftWidth: 4, borderLeftColor: difficultyColor }]}
                 onPress={() => handleBoardSelect(board)}
                 activeOpacity={0.7}
               >
@@ -318,6 +372,7 @@ export default function BoardSelectScreen() {
                     <Text style={styles.puzzleMode}>{puzzleModeLabel}</Text>
                   </View>
                   <View style={[styles.difficultyBadge, { backgroundColor: difficultyColor }]}>
+                    <Text style={styles.difficultyIcon}>{difficultyIcon}</Text>
                     <Text style={styles.difficultyText}>{difficultyText}</Text>
                   </View>
                 </View>
@@ -371,6 +426,73 @@ export default function BoardSelectScreen() {
         onClose={() => setErrorModal({ visible: false, message: '' })}
         type="error"
       />
+
+      <Modal
+        visible={showDifficultyInfo}
+        title="Difficulty Tiers"
+        onClose={() => setShowDifficultyInfo(false)}
+        type="info"
+      >
+        <View style={styles.difficultyInfoModal}>
+          <View style={styles.difficultyInfoItem}>
+            <View style={[styles.difficultyInfoBadge, { backgroundColor: '#10B981' }]}>
+              <Text style={styles.difficultyInfoIcon}>🌱</Text>
+              <Text style={styles.difficultyInfoTitle}>Easy</Text>
+            </View>
+            <Text style={styles.difficultyInfoDescription}>
+              • Fewer locked tiles{'\n'}
+              • Minimal board movement{'\n'}
+              • Clear progress feedback{'\n'}
+              • Perfect for onboarding and casual play
+            </Text>
+          </View>
+
+          <View style={styles.difficultyInfoItem}>
+            <View style={[styles.difficultyInfoBadge, { backgroundColor: '#F59E0B' }]}>
+              <Text style={styles.difficultyInfoIcon}>⚡</Text>
+              <Text style={styles.difficultyInfoTitle}>Medium</Text>
+            </View>
+            <Text style={styles.difficultyInfoDescription}>
+              • Board rotation or shifting{'\n'}
+              • Multiple puzzle elements active{'\n'}
+              • Requires planning and timing{'\n'}
+              • Balanced challenge for regular players
+            </Text>
+          </View>
+
+          <View style={styles.difficultyInfoItem}>
+            <View style={[styles.difficultyInfoBadge, { backgroundColor: '#EF4444' }]}>
+              <Text style={styles.difficultyInfoIcon}>🔥</Text>
+              <Text style={styles.difficultyInfoTitle}>Hard</Text>
+            </View>
+            <Text style={styles.difficultyInfoDescription}>
+              • Multiple simultaneous mechanics{'\n'}
+              • Aggressive board changes{'\n'}
+              • Punishes inefficient choices{'\n'}
+              • Designed for mastery and replay
+            </Text>
+          </View>
+
+          <View style={styles.difficultyInfoItem}>
+            <View style={[styles.difficultyInfoBadge, { backgroundColor: '#8B5CF6' }]}>
+              <Text style={styles.difficultyInfoIcon}>⭐</Text>
+              <Text style={styles.difficultyInfoTitle}>Special</Text>
+            </View>
+            <Text style={styles.difficultyInfoDescription}>
+              • Experimental rule sets{'\n'}
+              • Event-specific mechanics{'\n'}
+              • Unique challenges{'\n'}
+              • Designed to surprise experienced players
+            </Text>
+          </View>
+
+          <View style={styles.difficultyInfoNote}>
+            <Text style={styles.difficultyInfoNoteText}>
+              💡 Harder boards unlock as you progress, but you can always play easier boards for fun!
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -393,13 +515,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterButton: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: colors.card,
+    gap: 6,
   },
   filterButtonActive: {
     backgroundColor: colors.primary,
+  },
+  filterIcon: {
+    fontSize: 16,
   },
   filterText: {
     fontSize: 14,
@@ -408,6 +536,19 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: colors.text,
+  },
+  difficultyInfoBanner: {
+    backgroundColor: colors.card,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.tile,
+  },
+  difficultyInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,
@@ -491,9 +632,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   difficultyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    gap: 4,
+  },
+  difficultyIcon: {
+    fontSize: 14,
   },
   difficultyText: {
     fontSize: 12,
@@ -547,5 +694,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
+  },
+  difficultyInfoModal: {
+    gap: 20,
+  },
+  difficultyInfoItem: {
+    gap: 8,
+  },
+  difficultyInfoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  difficultyInfoIcon: {
+    fontSize: 20,
+  },
+  difficultyInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  difficultyInfoDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  difficultyInfoNote: {
+    backgroundColor: colors.backgroundAlt,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  difficultyInfoNoteText: {
+    fontSize: 13,
+    color: colors.text,
+    textAlign: 'center',
   },
 });
