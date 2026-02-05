@@ -94,6 +94,9 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   const handlePress = () => {
     if (disabled) return;
     
+    // Don't allow interaction with locked tiles
+    if (tile.type === 'locked') return;
+    
     // Trigger press animation
     scale.value = withSequence(
       withTiming(0.9, { duration: 100 }),
@@ -114,11 +117,19 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
 
   const getTileColor = () => {
     if (selected) return colors.tileActive;
+    
+    // Handle board system tile types
+    if (tile.type === 'locked') return '#374151'; // Dark gray for locked tiles
+    if (tile.type === 'objective') return '#8B5CF6'; // Purple for objective tiles
+    if (tile.type === 'puzzle') return '#F59E0B'; // Orange for puzzle tiles
+    
+    // Handle special tiles (legacy system)
     if (tile.isSpecial) {
       if (tile.specialType === 'double') return '#F59E0B';
       if (tile.specialType === 'triple') return '#EF4444';
       if (tile.specialType === 'wildcard') return '#8B5CF6';
     }
+    
     return colors.tile;
   };
 

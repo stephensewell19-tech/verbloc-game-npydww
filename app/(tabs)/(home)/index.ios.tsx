@@ -83,7 +83,8 @@ export default function HomeScreen() {
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button');
-    router.push('/game?mode=solo');
+    // Navigate to board selection screen for solo mode
+    router.push('/board-select?mode=solo');
   };
 
   const handleMultiplayer = () => {

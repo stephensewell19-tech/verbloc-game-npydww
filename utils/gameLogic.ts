@@ -1,5 +1,5 @@
 
-import { Tile, Position, BoardState } from '@/types/game';
+import { Tile, Position, BoardState, BoardTile, BoardMetadata, TileType } from '@/types/game';
 
 const LETTER_VALUES: { [key: string]: number } = {
   A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8,
@@ -185,4 +185,165 @@ export function applyWordEffect(board: BoardState, positions: Position[]): Board
   });
   
   return { ...board, tiles: newTiles };
+}
+
+// ============================================
+// BOARD SYSTEM UTILITIES
+// ============================================
+
+/**
+ * Converts a BoardMetadata's initialLayout to a playable BoardState
+ * This transforms the board definition into the active game board
+ */
+export function convertBoardToGameState(boardMetadata: BoardMetadata): BoardState {
+  console.log('Converting board to game state:', boardMetadata.name);
+  const { gridSize, initialLayout } = boardMetadata;
+  
+  const tiles: Tile[][] = [];
+  
+  for (let row = 0; row < gridSize; row++) {
+    tiles[row] = [];
+    for (let col = 0; col < gridSize; col++) {
+      const boardTile = initialLayout[row][col];
+      
+      // Convert BoardTile to game Tile
+      let gameTile: Tile;
+      
+      if (boardTile.type === 'letter') {
+        // Letter tile - use provided letter or generate random
+        const letter = boardTile.letter || generateRandomLetter();
+        gameTile = {
+          letter,
+          value: boardTile.value || LETTER_VALUES[letter] || 1,
+          row,
+          col,
+          type: 'letter',
+        };
+      } else if (boardTile.type === 'locked') {
+        // Locked tile - cannot be used
+        gameTile = {
+          letter: '🔒',
+          value: 0,
+          row,
+          col,
+          type: 'locked',
+        };
+      } else if (boardTile.type === 'puzzle') {
+        // Puzzle tile - special mechanics
+        const letter = boardTile.letter || generateRandomLetter();
+        gameTile = {
+          letter,
+          value: boardTile.value || LETTER_VALUES[letter] || 1,
+          row,
+          col,
+          type: 'puzzle',
+          isSpecial: true,
+          specialType: 'double', // Can be customized based on metadata
+        };
+      } else if (boardTile.type === 'objective') {
+        // Objective tile - must be cleared to win
+        const letter = boardTile.letter || '⭐';
+        gameTile = {
+          letter,
+          value: boardTile.value || 5,
+          row,
+          col,
+          type: 'objective',
+          isSpecial: true,
+        };
+      } else {
+        // Fallback
+        const letter = generateRandomLetter();
+        gameTile = {
+          letter,
+          value: LETTER_VALUES[letter] || 1,
+          row,
+          col,
+        };
+      }
+      
+      tiles[row][col] = gameTile;
+    }
+  }
+  
+  return { tiles, size: gridSize };
+}
+
+/**
+ * Generates a random letter based on distribution
+ */
+function generateRandomLetter(): string {
+  const letterPool: string[] = [];
+  LETTER_DISTRIBUTION.forEach(({ letter, count }) => {
+    for (let i = 0; i < count; i++) {
+      letterPool.push(letter);
+    }
+  });
+  const randomIndex = Math.floor(Math.random() * letterPool.length);
+  return letterPool[randomIndex];
+}
+
+/**
+ * Validates if a board layout is correctly structured
+ */
+export function validateBoardLayout(layout: BoardTile[][], gridSize: number): boolean {
+  if (!layout || layout.length !== gridSize) {
+    return false;
+  }
+  
+  for (let row = 0; row < gridSize; row++) {
+    if (!layout[row] || layout[row].length !== gridSize) {
+      return false;
+    }
+    
+    for (let col = 0; col < gridSize; col++) {
+      const tile = layout[row][col];
+      if (!tile || !tile.type) {
+        return false;
+      }
+      
+      const validTypes: TileType[] = ['letter', 'locked', 'puzzle', 'objective'];
+      if (!validTypes.includes(tile.type)) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Creates a simple board layout for testing
+ */
+export function createSimpleBoardLayout(gridSize: number): BoardTile[][] {
+  const layout: BoardTile[][] = [];
+  
+  for (let row = 0; row < gridSize; row++) {
+    layout[row] = [];
+    for (let col = 0; col < gridSize; col++) {
+      // Create a mix of tile types
+      let type: TileType = 'letter';
+      
+      // Add some locked tiles at edges
+      if ((row === 0 || row === gridSize - 1) && (col === 0 || col === gridSize - 1)) {
+        type = 'locked';
+      }
+      // Add objective tiles in center
+      else if (row === Math.floor(gridSize / 2) && col === Math.floor(gridSize / 2)) {
+        type = 'objective';
+      }
+      // Add some puzzle tiles randomly
+      else if (Math.random() < 0.1) {
+        type = 'puzzle';
+      }
+      
+      layout[row][col] = {
+        type,
+        letter: type === 'letter' || type === 'puzzle' ? generateRandomLetter() : undefined,
+        value: type === 'objective' ? 10 : undefined,
+      };
+    }
+  }
+  
+  return layout;
 }

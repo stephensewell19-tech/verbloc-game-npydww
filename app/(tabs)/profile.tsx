@@ -48,6 +48,28 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSeedBoards = async () => {
+    console.log('[Profile] User tapped Seed Boards button');
+    try {
+      setLoading(true);
+      const { seedBoards } = await import('@/utils/boardApi');
+      const result = await seedBoards();
+      console.log('[Profile] Boards seeded:', result);
+      setErrorModal({
+        visible: true,
+        message: `Success! ${result.message}`,
+      });
+    } catch (error: any) {
+      console.error('[Profile] Failed to seed boards:', error);
+      setErrorModal({
+        visible: true,
+        message: error.message || 'Failed to seed boards',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     console.log('User tapped Sign Out button');
     try {
@@ -214,6 +236,30 @@ export default function ProfileScreen() {
               color={colors.textSecondary}
             />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.seedButton]}
+            onPress={handleSeedBoards}
+            disabled={loading}
+          >
+            <IconSymbol
+              ios_icon_name="square.grid.3x3.fill"
+              android_material_icon_name="grid-on"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionButtonText, styles.seedButtonText]}>Seed Boards (Dev)</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -330,6 +376,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     fontWeight: '600',
+  },
+  seedButton: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  seedButtonText: {
+    color: colors.primary,
   },
   signOutButton: {
     backgroundColor: colors.error,

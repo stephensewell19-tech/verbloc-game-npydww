@@ -38,6 +38,7 @@ export default function GameScreen() {
   const params = useLocalSearchParams();
   const gameMode = (params.mode as 'solo' | 'multiplayer') || 'solo';
   const existingGameId = params.gameId as string | undefined;
+  const boardId = params.boardId as string | undefined;
 
   const [boardState, setBoardState] = useState<BoardState>(generateInitialBoard(6));
   const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
@@ -66,7 +67,7 @@ export default function GameScreen() {
   const [opponentScore, setOpponentScore] = useState(0);
 
   useEffect(() => {
-    console.log('[Game] Game screen mounted with mode:', gameMode);
+    console.log('[Game] Game screen mounted with mode:', gameMode, 'boardId:', boardId);
     if (existingGameId) {
       loadExistingGame(existingGameId);
     } else {
@@ -121,21 +122,26 @@ export default function GameScreen() {
   };
 
   const startNewGame = async () => {
-    console.log('[Game] Starting new game with mode:', gameMode);
+    console.log('[Game] Starting new game with mode:', gameMode, 'boardId:', boardId);
     try {
       setLoading(true);
       const endpoint = gameMode === 'solo' 
         ? '/api/game/solo/start' 
         : '/api/game/multiplayer/create';
       
+      // Pass boardId to backend if provided
+      const requestBody = boardId ? { boardId } : {};
+      
       const response = await authenticatedPost<{
         gameId: string;
         boardState: BoardState;
         status: string;
         inviteCode?: string;
-      }>(endpoint, {});
+        boardName?: string;
+        winCondition?: { type: string; target: number; description: string };
+      }>(endpoint, requestBody);
       
-      console.log('[Game] New game created:', response);
+      console.log('[Game] New game created successfully:', response);
       setGameId(response.gameId);
       setBoardState(response.boardState);
       setCurrentScore(0);
@@ -144,7 +150,17 @@ export default function GameScreen() {
       setGameStarted(true);
       setGameStatus('playing');
       setTurnsRemaining(20);
-      setWinCondition({ type: 'score', target: 500, current: 0 });
+      
+      // Use board's win condition if provided, otherwise default
+      if (response.winCondition) {
+        setWinCondition({
+          type: 'score',
+          target: response.winCondition.target,
+          current: 0,
+        });
+      } else {
+        setWinCondition({ type: 'score', target: 500, current: 0 });
+      }
       
       if (gameMode === 'multiplayer' && response.inviteCode) {
         setSuccessModal({

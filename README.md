@@ -188,8 +188,18 @@ https://4f3u7ax6jwateez5p5mamqzec794hew7.app.specular.dev
 - Experience points and level progression
 - Stats displayed on profile screen
 
+✅ **Board System** (NEW!)
+- Dynamic board loading from backend
+- 7x7 and 9x9 grid support
+- Multiple tile types (letter, locked, puzzle, objective)
+- Board filtering by mode and difficulty
+- Random board selection
+- Board seeding for testing
+- Scalable to hundreds of boards
+
 ✅ **Solo Game**
 - Backend-synced game creation
+- Board selection screen with filtering
 - Move validation and scoring
 - Board state persistence
 - Game completion tracking
@@ -238,6 +248,15 @@ https://4f3u7ax6jwateez5p5mamqzec794hew7.app.specular.dev
 - `GET /api/leaderboard/global` - Get global leaderboard by experience points
 - `GET /api/leaderboard/weekly` - Get weekly leaderboard by wins this week
 
+#### Board System
+- `GET /api/boards` - Get all boards with filtering (mode, difficulty, pagination)
+- `GET /api/boards/:id` - Get full board details including layout
+- `GET /api/boards/random` - Get a random board matching criteria
+- `POST /api/boards/seed` - Seed database with example boards (dev/admin)
+- `POST /api/boards` - Create a new board (admin)
+- `PUT /api/boards/:id` - Update an existing board (admin)
+- `DELETE /api/boards/:id` - Soft delete a board (admin)
+
 ### Testing the Integration
 
 #### 1. Test Authentication
@@ -256,20 +275,42 @@ Password: TestPassword123!
 # ✓ Session persists on reload
 ```
 
-#### 2. Test Solo Game
+#### 2. Test Board System (NEW!)
 ```bash
-# From home screen, tap "Play Solo"
+# Navigate to Profile tab
+# Tap "Seed Boards (Dev)" button
 
 # Verify:
-# ✓ New game created on backend
+# ✓ Success modal shows "Seeded X boards"
+# ✓ No errors in console
+
+# Go back to Home screen
+# Tap "Play Solo" button
+
+# Verify:
+# ✓ Board selection screen appears
+# ✓ Multiple boards displayed with names, difficulty, grid size
+# ✓ Can filter by difficulty (All, Easy, Medium, Hard, Special)
+# ✓ "Random Board" button works
+# ✓ Selecting a board navigates to game screen
+```
+
+#### 3. Test Solo Game with Boards
+```bash
+# From board selection, choose a board
+
+# Verify:
+# ✓ New game created on backend with selected boardId
 # ✓ Board state loaded from server
+# ✓ Grid size matches board (7x7 or 9x9)
 # ✓ Can select tiles and form words
 # ✓ Moves submitted to backend
 # ✓ Score tracked correctly
+# ✓ Win condition displayed (e.g., "Reach 500 points")
 # ✓ "New Game" completes current game
 ```
 
-#### 3. Test Player Stats
+#### 4. Test Player Stats
 ```bash
 # Navigate to Profile tab
 
@@ -280,7 +321,7 @@ Password: TestPassword123!
 # ✓ Stats update after completing games
 ```
 
-#### 4. Test Session Persistence
+#### 5. Test Session Persistence
 ```bash
 # Sign in, then reload the page/app
 
