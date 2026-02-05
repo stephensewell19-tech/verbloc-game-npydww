@@ -8,6 +8,10 @@ import { registerMultiplayerGameRoutes } from './routes/multiplayer-game.js';
 import { registerDailyChallengeRoutes } from './routes/daily-challenge.js';
 import { registerLeaderboardRoutes } from './routes/leaderboard.js';
 import { registerBoardRoutes } from './routes/boards.js';
+import { registerMatchmakingRoutes } from './routes/matchmaking.js';
+import { registerTurnManagementRoutes } from './routes/turn-management.js';
+import { registerSocialInteractionRoutes } from './routes/social-interactions.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
 
 // Combine schemas for full database type support
 const schema = { ...appSchema, ...authSchema };
@@ -29,6 +33,10 @@ registerMultiplayerGameRoutes(app);
 registerDailyChallengeRoutes(app);
 registerLeaderboardRoutes(app);
 registerBoardRoutes(app);
+registerMatchmakingRoutes(app);
+registerTurnManagementRoutes(app);
+registerSocialInteractionRoutes(app);
+registerNotificationRoutes(app);
 
 await app.run();
 app.logger.info('VERBLOC backend running');

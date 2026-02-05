@@ -69,6 +69,14 @@ export const games = pgTable('games', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   winnerId: text('winner_id').references(() => user.id, { onDelete: 'set null' }),
+  isLiveMatch: boolean('is_live_match').default(false).notNull(),
+  turnTimerSeconds: integer('turn_timer_seconds'),
+  turnGracePeriodHours: integer('turn_grace_period_hours').default(24).notNull(),
+  inviteCode: text('invite_code').unique(),
+  matchmakingType: text('matchmaking_type'), // 'random', 'invite', or 'private'
+  maxPlayers: integer('max_players').default(2).notNull(),
+  currentTurnStartedAt: timestamp('current_turn_started_at', { withTimezone: true }),
+  boardId: uuid('board_id').references(() => boards.id, { onDelete: 'set null' }),
 });
 
 // Game players table
@@ -102,6 +110,35 @@ export const dailyChallengeCompletions = pgTable('daily_challenge_completions', 
 }, (table) => [
   uniqueIndex('daily_challenge_completions_challenge_id_user_id_idx').on(table.challengeId, table.userId),
 ]);
+
+// Game reactions table
+export const gameReactions = pgTable('game_reactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameId: uuid('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  targetMoveIndex: integer('target_move_index').notNull(),
+  emoji: text('emoji').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Game taunts table
+export const gameTaunts = pgTable('game_taunts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameId: uuid('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  tauntType: text('taunt_type').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Push notification tokens table
+export const pushNotificationTokens = pgTable('push_notification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  pushToken: text('push_token').notNull(),
+  platform: text('platform', { enum: ['ios', 'android'] }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+});
 
 // Relations
 export const playerStatsRelations = relations(playerStats, ({ one }) => ({
@@ -141,6 +178,35 @@ export const dailyChallengeCompletionsRelations = relations(dailyChallengeComple
   }),
   user: one(user, {
     fields: [dailyChallengeCompletions.userId],
+    references: [user.id],
+  }),
+}));
+
+export const gameReactionsRelations = relations(gameReactions, ({ one }) => ({
+  game: one(games, {
+    fields: [gameReactions.gameId],
+    references: [games.id],
+  }),
+  user: one(user, {
+    fields: [gameReactions.userId],
+    references: [user.id],
+  }),
+}));
+
+export const gameTauntsRelations = relations(gameTaunts, ({ one }) => ({
+  game: one(games, {
+    fields: [gameTaunts.gameId],
+    references: [games.id],
+  }),
+  user: one(user, {
+    fields: [gameTaunts.userId],
+    references: [user.id],
+  }),
+}));
+
+export const pushNotificationTokensRelations = relations(pushNotificationTokens, ({ one }) => ({
+  user: one(user, {
+    fields: [pushNotificationTokens.userId],
     references: [user.id],
   }),
 }));

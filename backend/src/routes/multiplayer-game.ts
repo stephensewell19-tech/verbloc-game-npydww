@@ -293,11 +293,26 @@ export function registerMultiplayerGameRoutes(app: App) {
 
       const formattedGames = activeGames.map((gp) => {
         const opponentUser = gp.game.players.find((p) => p.userId !== session.user.id)?.user;
+
+        let turnTimeRemaining: number | undefined;
+        let isUrgent = false;
+
+        if (gp.isCurrentTurn && gp.game.isLiveMatch && gp.game.turnTimerSeconds && gp.game.currentTurnStartedAt) {
+          const elapsedSeconds = Math.floor(
+            (new Date().getTime() - gp.game.currentTurnStartedAt.getTime()) / 1000
+          );
+          turnTimeRemaining = Math.max(0, gp.game.turnTimerSeconds - elapsedSeconds);
+          isUrgent = turnTimeRemaining < 30; // Urgent if less than 30 seconds
+        }
+
         return {
           gameId: gp.game.id,
           opponentName: opponentUser?.name || 'Unknown',
           isMyTurn: gp.isCurrentTurn,
           lastMoveAt: gp.game.updatedAt,
+          turnTimeRemaining,
+          isLiveMatch: gp.game.isLiveMatch,
+          isUrgent,
         };
       });
 
