@@ -101,9 +101,9 @@ export default function HomeScreen() {
   };
 
   const handlePlaySolo = () => {
-    console.log('[Home] User tapped Play Solo button');
+    console.log('[Home] User tapped Play Solo button - navigating to board selection');
     // Navigate to board selection screen for solo mode
-    router.push('/board-select?mode=solo');
+    router.push('/board-select?mode=Solo');
   };
 
   const handleMultiplayer = () => {

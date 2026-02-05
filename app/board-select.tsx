@@ -102,12 +102,55 @@ export default function BoardSelectScreen() {
   };
 
   const handleBoardSelect = (board: BoardListItem) => {
-    console.log('[BoardSelect] Board selected:', board.name);
+    console.log('[BoardSelect] Board selected:', board.name, 'mode:', mode);
+    
+    // Set turn limit based on difficulty for solo mode
+    let turnLimit = 20; // Default
+    if (mode === 'Solo') {
+      switch (board.difficulty) {
+        case 'Easy':
+          turnLimit = 25;
+          break;
+        case 'Medium':
+          turnLimit = 20;
+          break;
+        case 'Hard':
+          turnLimit = 15;
+          break;
+        case 'Special':
+          turnLimit = 30;
+          break;
+      }
+    }
+    
+    // Set target score based on puzzle mode and difficulty
+    let targetScore = 500;
+    if (board.puzzleMode === 'score_target') {
+      switch (board.difficulty) {
+        case 'Easy':
+          targetScore = 300;
+          break;
+        case 'Medium':
+          targetScore = 500;
+          break;
+        case 'Hard':
+          targetScore = 800;
+          break;
+        case 'Special':
+          targetScore = 1000;
+          break;
+      }
+    }
+    
     router.push({
       pathname: '/game',
       params: {
         mode: mode.toLowerCase(),
         boardId: board.id,
+        puzzleMode: board.puzzleMode,
+        gridSize: board.gridSize.toString(),
+        targetScore: targetScore.toString(),
+        turnLimit: turnLimit.toString(),
       },
     });
   };

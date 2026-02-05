@@ -27,6 +27,8 @@ export interface WinCondition {
   targetPhrase?: string; // For hidden_phrase mode
   targetControlPercentage?: number; // For territory_control mode
   requiredVaultTiles?: number; // For vault_break mode
+  targetEfficiency?: number; // Optional efficiency score target
+  turnLimit?: number; // Turn limit for solo mode
 }
 
 export interface BoardMetadata {

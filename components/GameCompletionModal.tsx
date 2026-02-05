@@ -19,6 +19,9 @@ interface GameCompletionModalProps {
   finalScore: number;
   targetScore: number;
   wordsFormed: number;
+  efficiency?: number;
+  turnsUsed?: number;
+  turnLimit?: number;
   onPlayAgain: () => void;
   onBackToHome: () => void;
 }
@@ -31,6 +34,9 @@ export default function GameCompletionModal({
   finalScore,
   targetScore,
   wordsFormed,
+  efficiency,
+  turnsUsed,
+  turnLimit,
   onPlayAgain,
   onBackToHome,
 }: GameCompletionModalProps) {
@@ -38,9 +44,17 @@ export default function GameCompletionModal({
 
   const isWin = status === 'won';
   const title = isWin ? 'Victory!' : 'Game Over';
-  const message = isWin
-    ? 'Congratulations! You reached the target score!'
-    : "Don't give up! Every game makes you stronger.";
+  
+  // Dynamic messaging based on how the game ended
+  let message = '';
+  if (isWin) {
+    message = 'Congratulations! You completed the puzzle!';
+  } else if (turnsUsed !== undefined && turnLimit !== undefined && turnsUsed >= turnLimit) {
+    message = 'Ran out of turns! Try forming longer words next time.';
+  } else {
+    message = "Don't give up! Every game makes you stronger.";
+  }
+  
   const iconName = isWin ? 'trophy' : 'emoji-events';
   const gradientColors = isWin
     ? [colors.success, '#10B981']
@@ -51,6 +65,9 @@ export default function GameCompletionModal({
   const wordsFormedText = String(wordsFormed);
   const scorePercentage = Math.round((finalScore / targetScore) * 100);
   const scorePercentageText = `${scorePercentage}%`;
+  const efficiencyText = efficiency ? efficiency.toFixed(1) : '0.0';
+  const turnsUsedText = turnsUsed !== undefined ? String(turnsUsed) : '0';
+  const turnLimitText = turnLimit !== undefined ? String(turnLimit) : '0';
 
   return (
     <RNModal
@@ -100,6 +117,29 @@ export default function GameCompletionModal({
                 <Text style={styles.statSubtext}>of target</Text>
               </View>
             </View>
+            
+            {/* Additional Solo Mode Stats */}
+            {(efficiency !== undefined || turnsUsed !== undefined) && (
+              <View style={styles.additionalStatsContainer}>
+                {efficiency !== undefined && (
+                  <View style={styles.additionalStatBox}>
+                    <Text style={styles.additionalStatLabel}>Efficiency</Text>
+                    <Text style={styles.additionalStatValue}>{efficiencyText}</Text>
+                    <Text style={styles.additionalStatSubtext}>pts/word</Text>
+                  </View>
+                )}
+                
+                {turnsUsed !== undefined && turnLimit !== undefined && (
+                  <View style={styles.additionalStatBox}>
+                    <Text style={styles.additionalStatLabel}>Turns Used</Text>
+                    <Text style={styles.additionalStatValue}>{turnsUsedText} / {turnLimitText}</Text>
+                    <Text style={styles.additionalStatSubtext}>
+                      {turnLimit - turnsUsed} remaining
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {!isWin && (
               <View style={styles.encouragementBox}>
@@ -215,6 +255,35 @@ const styles = StyleSheet.create({
   },
   statSubtext: {
     fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  additionalStatsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  additionalStatBox: {
+    flex: 1,
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  additionalStatLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  additionalStatValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  additionalStatSubtext: {
+    fontSize: 9,
     color: colors.textSecondary,
     textAlign: 'center',
   },

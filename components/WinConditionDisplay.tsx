@@ -11,6 +11,7 @@ interface WinConditionDisplayProps {
   target: number;
   percentage: number;
   description?: string;
+  turnsLeft?: number;
 }
 
 export default function WinConditionDisplay({ 
@@ -18,10 +19,14 @@ export default function WinConditionDisplay({
   current, 
   target, 
   percentage,
-  description 
+  description,
+  turnsLeft
 }: WinConditionDisplayProps) {
   const progressValue = Math.min(percentage, 100);
   const progressText = `${Math.round(progressValue)}%`;
+  
+  // Show urgency indicator if turns are running low
+  const isUrgent = turnsLeft !== undefined && turnsLeft <= 3;
   
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -87,7 +92,7 @@ export default function WinConditionDisplay({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isUrgent && styles.containerUrgent]}>
       <View style={styles.header}>
         <View style={styles.labelContainer}>
           <Text style={styles.icon}>{conditionIcon}</Text>
@@ -100,6 +105,12 @@ export default function WinConditionDisplay({
       
       {description && (
         <Text style={styles.description}>{description}</Text>
+      )}
+      
+      {isUrgent && (
+        <View style={styles.urgentBanner}>
+          <Text style={styles.urgentText}>⚠️ Only {turnsLeft} turn{turnsLeft !== 1 ? 's' : ''} remaining!</Text>
+        </View>
       )}
       
       <View style={styles.progressBarContainer}>
@@ -129,6 +140,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  containerUrgent: {
+    borderWidth: 2,
+    borderColor: colors.error,
+    backgroundColor: colors.error + '10',
+  },
+  urgentBanner: {
+    backgroundColor: colors.error + '20',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  urgentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.error,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',

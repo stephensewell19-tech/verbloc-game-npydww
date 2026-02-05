@@ -39,6 +39,7 @@ export default function GameScreen() {
   const [currentWord, setCurrentWord] = useState('');
   const [score, setScore] = useState(0);
   const [movesMade, setMovesMade] = useState(0);
+  const [turnsLeft, setTurnsLeft] = useState(20); // Default turn limit for solo mode
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export default function GameScreen() {
   const [currentEffects, setCurrentEffects] = useState<WordEffect[]>([]);
   const [showEffects, setShowEffects] = useState(false);
   const [showMechanicsInfo, setShowMechanicsInfo] = useState(false);
+  const [efficiency, setEfficiency] = useState(0);
   
   // Game configuration from params
   const gameId = params.gameId as string | undefined;
@@ -57,12 +59,14 @@ export default function GameScreen() {
   const puzzleMode = (params.puzzleMode as PuzzleMode) || 'score_target';
   const targetScore = params.targetScore ? parseInt(params.targetScore as string) : 500;
   const gridSize = params.gridSize ? parseInt(params.gridSize as string) : 7;
+  const turnLimit = params.turnLimit ? parseInt(params.turnLimit as string) : 20;
   
   const winCondition: WinCondition = {
     type: puzzleMode === 'score_target' ? 'score' : puzzleMode,
     target: targetScore,
     description: `Reach ${targetScore} points`,
     targetControlPercentage: puzzleMode === 'territory_control' ? 60 : undefined,
+    turnLimit: gameMode === 'solo' ? turnLimit : undefined,
   };
 
   useEffect(() => {
@@ -99,19 +103,37 @@ export default function GameScreen() {
   }
 
   async function startNewGame() {
-    console.log('Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode);
+    console.log('Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     try {
       setLoading(true);
+      
+      // Initialize board locally
       const initialBoard = generateInitialBoard(gridSize);
       setBoard(initialBoard);
       setScore(0);
       setMovesMade(0);
       setWordsFormed(0);
+      setTurnsLeft(turnLimit);
       setGameStatus('playing');
       setLastWordEffect(null);
       setCurrentEffects([]);
+      setEfficiency(0);
+      setError(null);
+      setShowCompletionModal(false);
       
-      console.log('New game started successfully');
+      // Create solo game session on backend (optional - for tracking)
+      if (gameMode === 'solo') {
+        try {
+          const response = await authenticatedPost('/api/game/solo/start', {});
+          console.log('Solo game session created on backend:', response.gameId);
+          // Store gameId for later use (could use router.setParams if needed)
+        } catch (err) {
+          console.error('Failed to create backend game session:', err);
+          // Continue anyway - game can be played offline
+        }
+      }
+      
+      console.log('New game started successfully - Solo mode with', turnLimit, 'turns');
     } catch (err) {
       console.error('Error starting game:', err);
       setError('Failed to start game');
@@ -183,7 +205,7 @@ export default function GameScreen() {
       return;
     }
     
-    console.log('Submitting word:', currentWord);
+    console.log('Submitting word:', currentWord, 'Turns left:', turnsLeft);
     setSubmitting(true);
     setError(null);
     
@@ -213,7 +235,7 @@ export default function GameScreen() {
       
       console.log('Word effects applied:', effects.length, 'effects');
       
-      // Show effects to player
+      // Show effects to player with immediate visual feedback
       if (effects.length > 0) {
         setCurrentEffects(effects);
         setShowEffects(true);
@@ -231,24 +253,29 @@ export default function GameScreen() {
       const newScore = score + wordScore;
       const newMovesMade = movesMade + 1;
       const newWordsFormed = wordsFormed + 1;
+      const newTurnsLeft = gameMode === 'solo' ? turnsLeft - 1 : turnsLeft;
+      const newEfficiency = newScore / newMovesMade;
       
       setBoard(updatedBoard);
       setScore(newScore);
       setMovesMade(newMovesMade);
       setWordsFormed(newWordsFormed);
+      setTurnsLeft(newTurnsLeft);
+      setEfficiency(newEfficiency);
       setSelectedPositions([]);
       setCurrentWord('');
       
-      console.log('Game state updated - Score:', newScore, 'Moves:', newMovesMade);
+      console.log('Game state updated - Score:', newScore, 'Moves:', newMovesMade, 'Turns left:', newTurnsLeft, 'Efficiency:', newEfficiency.toFixed(2));
       
-      // Check win condition
+      // Check win condition (including turn limit for solo mode)
       const outcome = checkWinCondition(
         updatedBoard,
         puzzleMode,
         winCondition,
         newScore,
         newMovesMade,
-        gameMode
+        gameMode,
+        newTurnsLeft
       );
       
       console.log('Win condition check result:', outcome);
@@ -274,7 +301,18 @@ export default function GameScreen() {
     setGameStatus(status);
     setShowCompletionModal(true);
     
-    // TODO: Backend Integration - POST /api/game/complete with { gameId, status, finalScore, movesMade }
+    // Send game completion to backend (solo mode only)
+    if (gameMode === 'solo' && gameId) {
+      try {
+        await authenticatedPost(`/api/game/${gameId}/complete`, {
+          finalScore,
+        });
+        console.log('Game completion sent to backend');
+      } catch (err) {
+        console.error('Failed to send game completion to backend:', err);
+        // Don't block the UI if backend fails
+      }
+    }
   }
 
   function handleClearSelection() {
@@ -387,18 +425,31 @@ export default function GameScreen() {
             <Text style={styles.statValue}>{wordsFormed}</Text>
           </View>
           
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Moves</Text>
-            <Text style={styles.statValue}>{movesMade}</Text>
-          </View>
+          {gameMode === 'solo' && (
+            <View style={[styles.statBox, turnsLeft <= 3 && styles.statBoxUrgent]}>
+              <Text style={styles.statLabel}>Turns Left</Text>
+              <Text style={[styles.statValue, turnsLeft <= 3 && styles.statValueUrgent]}>
+                {turnsLeft}
+              </Text>
+            </View>
+          )}
+          
+          {gameMode === 'multiplayer' && (
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>Moves</Text>
+              <Text style={styles.statValue}>{movesMade}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Win Condition Display */}
+        {/* Win Condition Display with Progress Meter */}
         <WinConditionDisplay
           puzzleMode={puzzleMode}
-          winCondition={winCondition}
-          currentScore={score}
-          progress={progress}
+          current={progress.current}
+          target={progress.target}
+          percentage={progress.percentage}
+          description={winCondition.description}
+          turnsLeft={gameMode === 'solo' ? turnsLeft : undefined}
         />
 
         {/* Word Effects Display */}
@@ -501,13 +552,16 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
-      {/* Game Completion Modal */}
+      {/* Game Completion Modal with End-of-Run Summary */}
       <GameCompletionModal
         visible={showCompletionModal}
         status={gameStatus}
         finalScore={score}
         targetScore={targetScore}
         wordsFormed={wordsFormed}
+        efficiency={efficiency}
+        turnsUsed={gameMode === 'solo' ? (turnLimit - turnsLeft) : undefined}
+        turnLimit={gameMode === 'solo' ? turnLimit : undefined}
         onPlayAgain={handleNewGame}
         onBackToHome={handleBackToHome}
       />
@@ -583,6 +637,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 100,
   },
+  statBoxUrgent: {
+    backgroundColor: colors.error + '20',
+    borderWidth: 2,
+    borderColor: colors.error,
+  },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -592,6 +651,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
+  },
+  statValueUrgent: {
+    color: colors.error,
   },
   effectsContainer: {
     backgroundColor: colors.primary + '20',

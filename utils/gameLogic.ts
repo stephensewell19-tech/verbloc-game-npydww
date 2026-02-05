@@ -171,62 +171,29 @@ export function arePositionsAdjacent(positions: Position[]): boolean {
   return true;
 }
 
-export function applyWordEffect(board: BoardState, positions: Position[], puzzleMode?: PuzzleMode, playerId?: string): BoardState {
-  console.log('Applying word effect to board at positions:', positions, 'puzzleMode:', puzzleMode);
-  const newTiles = board.tiles.map(row => row.map(tile => ({ ...tile })));
+export function applyWordEffect(
+  board: BoardState,
+  positions: Position[],
+  puzzleMode?: PuzzleMode,
+  playerId?: string,
+  word?: string,
+  lastEffect?: any
+): { board: BoardState; effects: any[] } {
+  console.log('Applying word effect to board at positions:', positions, 'puzzleMode:', puzzleMode, 'word:', word);
   
-  positions.forEach((pos) => {
-    const tile = newTiles[pos.row][pos.col];
-    
-    // Apply puzzle mode specific effects
-    if (puzzleMode === 'vault_break') {
-      // Unlock adjacent locked tiles
-      const adjacentPositions = getAdjacentPositions(pos, board.size);
-      adjacentPositions.forEach(adjPos => {
-        const adjTile = newTiles[adjPos.row][adjPos.col];
-        if (adjTile.isLocked && adjTile.isVault) {
-          console.log('Unlocking vault tile at:', adjPos);
-          newTiles[adjPos.row][adjPos.col] = {
-            ...adjTile,
-            isLocked: false,
-            letter: generateRandomLetter(),
-          };
-        }
-      });
-    } else if (puzzleMode === 'hidden_phrase') {
-      // Reveal hidden phrase letters
-      if (tile.isPhraseLetter && !tile.isRevealed && tile.hiddenLetter) {
-        console.log('Revealing phrase letter at:', pos);
-        newTiles[pos.row][pos.col] = {
-          ...tile,
-          isRevealed: true,
-          letter: tile.hiddenLetter,
-        };
-      }
-    } else if (puzzleMode === 'territory_control') {
-      // Claim tiles for the player
-      if (tile.isClaimable) {
-        console.log('Claiming tile at:', pos, 'for player:', playerId);
-        newTiles[pos.row][pos.col] = {
-          ...tile,
-          ownerId: playerId || 'player1',
-          ownerColor: playerId === 'player2' ? '#EF4444' : '#3B82F6',
-        };
-      }
-    }
-    
-    // Replace used tiles with new letters (unless it's a special puzzle tile)
-    if (!tile.isLocked && !tile.isPhraseLetter) {
-      const newLetter = generateRandomLetter();
-      newTiles[pos.row][pos.col] = {
-        ...newTiles[pos.row][pos.col],
-        letter: newLetter,
-        value: LETTER_VALUES[newLetter] || 1,
-      };
-    }
-  });
+  // Import word mechanics functions
+  const { analyzeWordEffects, applyWordEffectsToBoard } = require('./wordMechanics');
   
-  return { ...board, tiles: newTiles };
+  // Analyze word to determine effects
+  const effects = word ? analyzeWordEffects(word, lastEffect) : [];
+  console.log('Word effects analyzed:', effects.length, 'effects');
+  
+  // Apply effects to board
+  const updatedBoard = word 
+    ? applyWordEffectsToBoard(board, word, positions, effects, puzzleMode || 'score_target', playerId, lastEffect)
+    : board;
+  
+  return { board: updatedBoard, effects };
 }
 
 // ============================================
@@ -239,9 +206,16 @@ export function checkWinCondition(
   winCondition: WinCondition,
   currentScore: number,
   movesMade: number,
-  gameMode: 'solo' | 'multiplayer'
+  gameMode: 'solo' | 'multiplayer',
+  turnsLeft?: number
 ): GameOutcome {
-  console.log('Checking win condition for puzzle mode:', puzzleMode);
+  console.log('Checking win condition for puzzle mode:', puzzleMode, 'moves:', movesMade, 'turnsLeft:', turnsLeft);
+  
+  // FAIL CONDITION: Run out of turns (solo mode only)
+  if (gameMode === 'solo' && turnsLeft !== undefined && turnsLeft <= 0) {
+    console.log('Game lost: ran out of turns');
+    return GameOutcome.Loss;
+  }
   
   // Rule: No puzzle may be completed in a single move
   if (movesMade < 2) {
@@ -255,7 +229,19 @@ export function checkWinCondition(
       const allVaultsUnlocked = requiredVaultTiles.length > 0 && unlockedVaults.length === requiredVaultTiles.length;
       
       console.log('Vault Break progress:', unlockedVaults.length, '/', requiredVaultTiles.length);
-      return allVaultsUnlocked ? GameOutcome.Win : GameOutcome.Playing;
+      
+      // WIN CONDITION: All required vaults unlocked
+      if (allVaultsUnlocked) {
+        return GameOutcome.Win;
+      }
+      
+      // FAIL CONDITION: Check if board is irreversibly locked (no more valid moves)
+      if (gameMode === 'solo' && isBoardLocked(boardState)) {
+        console.log('Game lost: board irreversibly locked');
+        return GameOutcome.Loss;
+      }
+      
+      return GameOutcome.Playing;
     }
     
     case 'hidden_phrase': {
@@ -264,7 +250,13 @@ export function checkWinCondition(
       const allRevealed = phraseLetters.length > 0 && revealedLetters.length === phraseLetters.length;
       
       console.log('Hidden Phrase progress:', revealedLetters.length, '/', phraseLetters.length);
-      return allRevealed ? GameOutcome.Win : GameOutcome.Playing;
+      
+      // WIN CONDITION: All phrase letters revealed
+      if (allRevealed) {
+        return GameOutcome.Win;
+      }
+      
+      return GameOutcome.Playing;
     }
     
     case 'territory_control': {
@@ -281,20 +273,48 @@ export function checkWinCondition(
       
       console.log('Territory Control progress:', controlPercentage.toFixed(1), '% (target:', targetPercentage, '%)');
       
-      if (gameMode === 'multiplayer') {
-        // For multiplayer, this would be checked after X turns
-        return GameOutcome.Playing;
-      } else {
-        return controlPercentage >= targetPercentage ? GameOutcome.Win : GameOutcome.Playing;
+      // WIN CONDITION: Reached target control percentage
+      if (controlPercentage >= targetPercentage) {
+        return GameOutcome.Win;
       }
+      
+      return GameOutcome.Playing;
     }
     
     case 'score_target':
     default: {
       const targetScore = winCondition.target || 500;
-      return currentScore >= targetScore ? GameOutcome.Win : GameOutcome.Playing;
+      
+      // WIN CONDITION: Reached target score
+      if (currentScore >= targetScore) {
+        return GameOutcome.Win;
+      }
+      
+      // Optional: Check efficiency score
+      if (winCondition.targetEfficiency && movesMade > 0) {
+        const efficiency = currentScore / movesMade;
+        console.log('Efficiency score:', efficiency.toFixed(2), 'target:', winCondition.targetEfficiency);
+      }
+      
+      return GameOutcome.Playing;
     }
   }
+}
+
+/**
+ * Checks if the board is irreversibly locked (no valid moves possible)
+ */
+function isBoardLocked(boardState: BoardState): boolean {
+  // Check if there are any unlocked tiles that can form words
+  const unlockedTiles = boardState.tiles.flat().filter(t => !t.isLocked);
+  
+  // If we have at least 3 unlocked tiles, the board is not locked
+  if (unlockedTiles.length >= 3) {
+    return false;
+  }
+  
+  // Board is locked if we can't form any words
+  return true;
 }
 
 export function getPuzzleModeProgress(boardState: BoardState, puzzleMode: PuzzleMode, winCondition: WinCondition) {
