@@ -11,13 +11,15 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
-import { Position, Move, BoardState } from '@/types/game';
+import { Position, Move, BoardState, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
 import {
   generateInitialBoard,
   isValidWord,
   calculateScore,
   arePositionsAdjacent,
   applyWordEffect,
+  checkWinCondition,
+  getPuzzleModeProgress,
 } from '@/utils/gameLogic';
 import GameBoard from '@/components/GameBoard';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -26,12 +28,6 @@ import { authenticatedPost, authenticatedGet } from '@/utils/api';
 import { Modal } from '@/components/button';
 import WinConditionDisplay from '@/components/WinConditionDisplay';
 import GameCompletionModal from '@/components/GameCompletionModal';
-
-interface WinCondition {
-  type: 'score' | 'turns' | 'words';
-  target: number;
-  current: number;
-}
 
 export default function GameScreen() {
   const router = useRouter();
@@ -51,11 +47,12 @@ export default function GameScreen() {
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
   const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
   
-  // Win condition tracking
+  // Puzzle mode state
+  const [puzzleMode, setPuzzleMode] = useState<PuzzleMode>('score_target');
   const [winCondition, setWinCondition] = useState<WinCondition>({
-    type: 'score',
+    type: 'score_target',
     target: 500,
-    current: 0,
+    description: 'Reach the target score',
   });
   const [turnsRemaining, setTurnsRemaining] = useState(20);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
@@ -92,6 +89,8 @@ export default function GameScreen() {
         isMyTurn?: boolean;
         opponentName?: string;
         opponentScore?: number;
+        puzzleMode?: PuzzleMode;
+        winCondition?: WinCondition;
       }>(endpoint);
       
       console.log('[Game] Existing game loaded:', response);
@@ -101,14 +100,19 @@ export default function GameScreen() {
       setMoveHistory(response.moveHistory || []);
       setGameStarted(true);
       
+      if (response.puzzleMode) {
+        setPuzzleMode(response.puzzleMode);
+      }
+      
+      if (response.winCondition) {
+        setWinCondition(response.winCondition);
+      }
+      
       if (gameMode === 'multiplayer') {
         setIsMyTurn(response.isMyTurn || false);
         setOpponentName(response.opponentName || 'Opponent');
         setOpponentScore(response.opponentScore || 0);
       }
-      
-      // Update win condition
-      setWinCondition(prev => ({ ...prev, current: response.score }));
     } catch (error: any) {
       console.error('[Game] Failed to load game:', error);
       setErrorModal({
@@ -129,7 +133,6 @@ export default function GameScreen() {
         ? '/api/game/solo/start' 
         : '/api/game/multiplayer/create';
       
-      // Pass boardId to backend if provided
       const requestBody = boardId ? { boardId } : {};
       
       const response = await authenticatedPost<{
@@ -138,7 +141,8 @@ export default function GameScreen() {
         status: string;
         inviteCode?: string;
         boardName?: string;
-        winCondition?: { type: string; target: number; description: string };
+        puzzleMode?: PuzzleMode;
+        winCondition?: WinCondition;
       }>(endpoint, requestBody);
       
       console.log('[Game] New game created successfully:', response);
@@ -151,15 +155,18 @@ export default function GameScreen() {
       setGameStatus('playing');
       setTurnsRemaining(20);
       
-      // Use board's win condition if provided, otherwise default
+      if (response.puzzleMode) {
+        setPuzzleMode(response.puzzleMode);
+      }
+      
       if (response.winCondition) {
-        setWinCondition({
-          type: 'score',
-          target: response.winCondition.target,
-          current: 0,
-        });
+        setWinCondition(response.winCondition);
       } else {
-        setWinCondition({ type: 'score', target: 500, current: 0 });
+        setWinCondition({ 
+          type: 'score_target', 
+          target: 500,
+          description: 'Reach the target score'
+        });
       }
       
       if (gameMode === 'multiplayer' && response.inviteCode) {
@@ -174,7 +181,6 @@ export default function GameScreen() {
         visible: true,
         message: error.message || 'Failed to start game',
       });
-      // Fallback to local game
       setBoardState(generateInitialBoard(6));
       setGameStarted(false);
     } finally {
@@ -246,11 +252,9 @@ export default function GameScreen() {
       return;
     }
 
-    // Calculate score locally first
     const score = calculateScore(wordUpper, selectedPositions, boardState);
-    const newBoardState = applyWordEffect(boardState, selectedPositions);
+    const newBoardState = applyWordEffect(boardState, selectedPositions, puzzleMode, 'player1');
 
-    // Submit move to backend if we have a gameId
     if (gameId) {
       try {
         setLoading(true);
@@ -286,15 +290,20 @@ export default function GameScreen() {
           setMoveHistory([...moveHistory, move]);
           setSelectedPositions([]);
           
-          // Update win condition
-          setWinCondition(prev => ({ ...prev, current: newScore }));
-          
-          // Decrease turns remaining
           const newTurnsRemaining = turnsRemaining - 1;
           setTurnsRemaining(newTurnsRemaining);
           
-          // Check win/loss conditions
-          if (newScore >= winCondition.target) {
+          // Check win condition based on puzzle mode
+          const outcome = checkWinCondition(
+            response.newBoardState,
+            puzzleMode,
+            winCondition,
+            newScore,
+            moveHistory.length + 1,
+            gameMode
+          );
+          
+          if (outcome === GameOutcome.Win) {
             setGameStatus('won');
             setShowCompletionModal(true);
             await completeGame('won', newScore);
@@ -304,7 +313,6 @@ export default function GameScreen() {
             await completeGame('lost', newScore);
           }
           
-          // For multiplayer, switch turns
           if (gameMode === 'multiplayer') {
             setIsMyTurn(false);
             setSuccessModal({
@@ -328,7 +336,6 @@ export default function GameScreen() {
         setLoading(false);
       }
     } else {
-      // Fallback to local game
       const newScore = currentScore + score;
       const move: Move = {
         word: wordUpper,
@@ -342,15 +349,20 @@ export default function GameScreen() {
       setMoveHistory([...moveHistory, move]);
       setSelectedPositions([]);
       
-      // Update win condition
-      setWinCondition(prev => ({ ...prev, current: newScore }));
-      
-      // Decrease turns remaining
       const newTurnsRemaining = turnsRemaining - 1;
       setTurnsRemaining(newTurnsRemaining);
       
-      // Check win/loss conditions
-      if (newScore >= winCondition.target) {
+      // Check win condition based on puzzle mode
+      const outcome = checkWinCondition(
+        newBoardState,
+        puzzleMode,
+        winCondition,
+        newScore,
+        moveHistory.length + 1,
+        gameMode
+      );
+      
+      if (outcome === GameOutcome.Win) {
         setGameStatus('won');
         setShowCompletionModal(true);
       } else if (newTurnsRemaining <= 0) {
@@ -387,7 +399,6 @@ export default function GameScreen() {
   const handleNewGame = async () => {
     console.log('[Game] User requested new game');
     
-    // Complete current game if exists
     if (gameId && gameStarted && gameStatus === 'playing') {
       try {
         await authenticatedPost(`/api/game/${gameId}/complete`, {
@@ -400,7 +411,6 @@ export default function GameScreen() {
       }
     }
 
-    // Reset state and start new game
     setGameStatus('playing');
     setShowCompletionModal(false);
     await startNewGame();
@@ -417,6 +427,55 @@ export default function GameScreen() {
 
   const gameModeText = gameMode === 'solo' ? 'Solo Play' : 'Multiplayer';
   const turnsText = String(turnsRemaining);
+  
+  // Get puzzle mode progress
+  const progress = getPuzzleModeProgress(boardState, puzzleMode, winCondition);
+
+  const getInstructionsText = () => {
+    const baseInstructions = `1. Tap tiles to select letters
+2. Form words by selecting adjacent tiles
+3. Words must be at least 3 letters long
+4. Special tiles give bonus points
+
+`;
+
+    const puzzleModeInstructions = {
+      vault_break: `🔓 VAULT BREAK MODE
+Unlock all vault tiles to win!
+- Locked tiles (🔒) cannot be used
+- Form words adjacent to vaults to unlock them
+- All required vaults must be unlocked
+
+`,
+      hidden_phrase: `🔍 HIDDEN PHRASE MODE
+Reveal the hidden phrase to win!
+- Purple tiles (?) hide letters
+- Form words using these tiles to reveal them
+- Reveal all phrase letters to complete the puzzle
+
+`,
+      territory_control: `🗺️ TERRITORY CONTROL MODE
+Claim territory to win!
+- Orange tiles can be claimed
+- Form words to claim tiles for your territory
+- Reach ${winCondition.targetControlPercentage || 60}% control to win
+
+`,
+      score_target: `🎯 SCORE TARGET MODE
+Reach the target score to win!
+- 2× doubles letter value
+- 3× triples letter value
+- ★ doubles word score
+
+`,
+    };
+
+    const multiplayerNote = gameMode === 'multiplayer' 
+      ? '\nMultiplayer: Take turns with your opponent. The player with the highest score wins!' 
+      : '';
+
+    return baseInstructions + (puzzleModeInstructions[puzzleMode] || '') + multiplayerNote;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -453,7 +512,6 @@ export default function GameScreen() {
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Multiplayer Turn Indicator */}
         {gameMode === 'multiplayer' && (
           <View style={[styles.turnIndicator, isMyTurn ? styles.myTurn : styles.opponentTurn]}>
             <IconSymbol
@@ -468,7 +526,6 @@ export default function GameScreen() {
           </View>
         )}
 
-        {/* Score and Progress */}
         <View style={styles.scoreContainer}>
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>Score</Text>
@@ -488,8 +545,13 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* Win Condition Display */}
-        <WinConditionDisplay winCondition={winCondition} />
+        <WinConditionDisplay
+          puzzleMode={puzzleMode}
+          current={progress.current}
+          target={progress.target}
+          percentage={progress.percentage}
+          description={winCondition.description}
+        />
 
         <GameBoard
           tiles={boardState.tiles}
@@ -574,17 +636,7 @@ export default function GameScreen() {
       <Modal
         visible={showInstructions}
         title="How to Play"
-        message={`1. Tap tiles to select letters
-2. Form words by selecting adjacent tiles
-3. Words must be at least 3 letters long
-4. Special tiles give bonus points:
-   • 2× doubles letter value
-   • 3× triples letter value
-   • ★ doubles word score
-5. After submitting, tiles refresh with new letters
-6. Reach the target score before running out of turns!
-
-${gameMode === 'multiplayer' ? '\nMultiplayer: Take turns with your opponent. The player with the highest score wins!' : ''}`}
+        message={getInstructionsText()}
         onClose={() => setShowInstructions(false)}
         type="info"
       />

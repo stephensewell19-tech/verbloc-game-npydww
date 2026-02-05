@@ -9,7 +9,6 @@ import Animated, {
   withSequence,
   withTiming,
   useSharedValue,
-  withDelay,
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -95,7 +94,7 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     if (disabled) return;
     
     // Don't allow interaction with locked tiles
-    if (tile.type === 'locked') return;
+    if (tile.isLocked) return;
     
     // Trigger press animation
     scale.value = withSequence(
@@ -118,10 +117,35 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   const getTileColor = () => {
     if (selected) return colors.tileActive;
     
+    // Territory Control - show owner color
+    if (tile.ownerId && tile.ownerColor) {
+      return tile.ownerColor;
+    }
+    
+    // Vault Break - locked tiles
+    if (tile.isLocked && tile.isVault) {
+      return '#374151'; // Dark gray for locked vaults
+    }
+    
+    // Hidden Phrase - unrevealed phrase letters
+    if (tile.isPhraseLetter && !tile.isRevealed) {
+      return '#8B5CF6'; // Purple for hidden letters
+    }
+    
+    // Hidden Phrase - revealed phrase letters
+    if (tile.isPhraseLetter && tile.isRevealed) {
+      return '#10B981'; // Green for revealed letters
+    }
+    
+    // Territory Control - claimable tiles
+    if (tile.isClaimable && !tile.ownerId) {
+      return '#F59E0B'; // Orange for unclaimed territory
+    }
+    
     // Handle board system tile types
-    if (tile.type === 'locked') return '#374151'; // Dark gray for locked tiles
-    if (tile.type === 'objective') return '#8B5CF6'; // Purple for objective tiles
-    if (tile.type === 'puzzle') return '#F59E0B'; // Orange for puzzle tiles
+    if (tile.type === 'locked') return '#374151';
+    if (tile.type === 'objective') return '#8B5CF6';
+    if (tile.type === 'puzzle') return '#F59E0B';
     
     // Handle special tiles (legacy system)
     if (tile.isSpecial) {
@@ -133,13 +157,22 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     return colors.tile;
   };
 
+  const getTileBadge = () => {
+    if (tile.isLocked && tile.isVault) return '🔒';
+    if (tile.isPhraseLetter && !tile.isRevealed) return '?';
+    if (tile.isPhraseLetter && tile.isRevealed) return '✓';
+    if (tile.ownerId) return '👤';
+    return null;
+  };
+
   const tileColor = getTileColor();
+  const tileBadge = getTileBadge();
 
   return (
     <Animated.View style={[animatedStyle]}>
       <TouchableOpacity
         onPress={handlePress}
-        disabled={disabled}
+        disabled={disabled || tile.isLocked}
         activeOpacity={0.7}
         style={[
           styles.tile,
@@ -148,16 +181,25 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
             height: size,
             backgroundColor: tileColor,
           },
+          tile.isLocked && styles.tileDisabled,
         ]}
       >
         <Text style={styles.letter}>{tile.letter}</Text>
         <Text style={styles.value}>{tile.value}</Text>
+        
         {selected && order > 0 && (
           <View style={styles.orderBadge}>
             <Text style={styles.orderText}>{order}</Text>
           </View>
         )}
-        {tile.isSpecial && !selected && (
+        
+        {!selected && tileBadge && (
+          <View style={styles.specialBadge}>
+            <Text style={styles.specialText}>{tileBadge}</Text>
+          </View>
+        )}
+        
+        {!selected && tile.isSpecial && !tileBadge && (
           <View style={styles.specialBadge}>
             <Text style={styles.specialText}>
               {tile.specialType === 'double' ? '2×' : tile.specialType === 'triple' ? '3×' : '★'}
@@ -188,6 +230,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  tileDisabled: {
+    opacity: 0.6,
   },
   letter: {
     fontSize: 28,

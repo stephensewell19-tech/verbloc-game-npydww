@@ -1,5 +1,5 @@
 
-import { Tile, Position, BoardState, BoardTile, BoardMetadata, TileType } from '@/types/game';
+import { Tile, Position, BoardState, BoardTile, BoardMetadata, TileType, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
 
 const LETTER_VALUES: { [key: string]: number } = {
   A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8,
@@ -104,7 +104,9 @@ export function isValidWord(word: string): boolean {
     'SOME', 'SUCH', 'TAKE', 'TELL', 'THAN', 'THAT', 'THEM', 'THEN',
     'THERE', 'THESE', 'THEY', 'THIS', 'TIME', 'VERY', 'WANT', 'WELL',
     'WENT', 'WERE', 'WHAT', 'WHEN', 'WHERE', 'WHICH', 'WHILE', 'WITH',
-    'WORK', 'WORLD', 'WOULD', 'WRITE', 'YEAR', 'YOUR'
+    'WORK', 'WORLD', 'WOULD', 'WRITE', 'YEAR', 'YOUR', 'LOCK', 'UNLOCK',
+    'VAULT', 'BREAK', 'OPEN', 'REVEAL', 'HIDDEN', 'PHRASE', 'CLAIM',
+    'CONTROL', 'TERRITORY', 'AREA', 'ZONE', 'REGION'
   ];
   
   return validWords.includes(word.toUpperCase());
@@ -169,22 +171,177 @@ export function arePositionsAdjacent(positions: Position[]): boolean {
   return true;
 }
 
-export function applyWordEffect(board: BoardState, positions: Position[]): BoardState {
-  console.log('Applying word effect to board at positions:', positions);
+export function applyWordEffect(board: BoardState, positions: Position[], puzzleMode?: PuzzleMode, playerId?: string): BoardState {
+  console.log('Applying word effect to board at positions:', positions, 'puzzleMode:', puzzleMode);
   const newTiles = board.tiles.map(row => row.map(tile => ({ ...tile })));
   
   positions.forEach((pos) => {
-    const randomIndex = Math.floor(Math.random() * LETTER_DISTRIBUTION.length);
-    const newLetter = LETTER_DISTRIBUTION[randomIndex].letter;
+    const tile = newTiles[pos.row][pos.col];
     
-    newTiles[pos.row][pos.col] = {
-      ...newTiles[pos.row][pos.col],
-      letter: newLetter,
-      value: LETTER_VALUES[newLetter] || 1,
-    };
+    // Apply puzzle mode specific effects
+    if (puzzleMode === 'vault_break') {
+      // Unlock adjacent locked tiles
+      const adjacentPositions = getAdjacentPositions(pos, board.size);
+      adjacentPositions.forEach(adjPos => {
+        const adjTile = newTiles[adjPos.row][adjPos.col];
+        if (adjTile.isLocked && adjTile.isVault) {
+          console.log('Unlocking vault tile at:', adjPos);
+          newTiles[adjPos.row][adjPos.col] = {
+            ...adjTile,
+            isLocked: false,
+            letter: generateRandomLetter(),
+          };
+        }
+      });
+    } else if (puzzleMode === 'hidden_phrase') {
+      // Reveal hidden phrase letters
+      if (tile.isPhraseLetter && !tile.isRevealed && tile.hiddenLetter) {
+        console.log('Revealing phrase letter at:', pos);
+        newTiles[pos.row][pos.col] = {
+          ...tile,
+          isRevealed: true,
+          letter: tile.hiddenLetter,
+        };
+      }
+    } else if (puzzleMode === 'territory_control') {
+      // Claim tiles for the player
+      if (tile.isClaimable) {
+        console.log('Claiming tile at:', pos, 'for player:', playerId);
+        newTiles[pos.row][pos.col] = {
+          ...tile,
+          ownerId: playerId || 'player1',
+          ownerColor: playerId === 'player2' ? '#EF4444' : '#3B82F6',
+        };
+      }
+    }
+    
+    // Replace used tiles with new letters (unless it's a special puzzle tile)
+    if (!tile.isLocked && !tile.isPhraseLetter) {
+      const newLetter = generateRandomLetter();
+      newTiles[pos.row][pos.col] = {
+        ...newTiles[pos.row][pos.col],
+        letter: newLetter,
+        value: LETTER_VALUES[newLetter] || 1,
+      };
+    }
   });
   
   return { ...board, tiles: newTiles };
+}
+
+// ============================================
+// PUZZLE MODE WIN CONDITION CHECKS
+// ============================================
+
+export function checkWinCondition(
+  boardState: BoardState,
+  puzzleMode: PuzzleMode,
+  winCondition: WinCondition,
+  currentScore: number,
+  movesMade: number,
+  gameMode: 'solo' | 'multiplayer'
+): GameOutcome {
+  console.log('Checking win condition for puzzle mode:', puzzleMode);
+  
+  // Rule: No puzzle may be completed in a single move
+  if (movesMade < 2) {
+    return GameOutcome.Playing;
+  }
+  
+  switch (puzzleMode) {
+    case 'vault_break': {
+      const requiredVaultTiles = boardState.tiles.flat().filter(t => t.isVault && t.isRequired);
+      const unlockedVaults = requiredVaultTiles.filter(t => !t.isLocked);
+      const allVaultsUnlocked = requiredVaultTiles.length > 0 && unlockedVaults.length === requiredVaultTiles.length;
+      
+      console.log('Vault Break progress:', unlockedVaults.length, '/', requiredVaultTiles.length);
+      return allVaultsUnlocked ? GameOutcome.Win : GameOutcome.Playing;
+    }
+    
+    case 'hidden_phrase': {
+      const phraseLetters = boardState.tiles.flat().filter(t => t.isPhraseLetter && !t.isDecoy);
+      const revealedLetters = phraseLetters.filter(t => t.isRevealed);
+      const allRevealed = phraseLetters.length > 0 && revealedLetters.length === phraseLetters.length;
+      
+      console.log('Hidden Phrase progress:', revealedLetters.length, '/', phraseLetters.length);
+      return allRevealed ? GameOutcome.Win : GameOutcome.Playing;
+    }
+    
+    case 'territory_control': {
+      const claimableTiles = boardState.tiles.flat().filter(t => t.isClaimable);
+      const playerControlledTiles = claimableTiles.filter(t => t.ownerId === 'player1');
+      const totalClaimable = claimableTiles.length;
+      
+      if (totalClaimable === 0) {
+        return GameOutcome.Playing;
+      }
+      
+      const controlPercentage = (playerControlledTiles.length / totalClaimable) * 100;
+      const targetPercentage = winCondition.targetControlPercentage || 60;
+      
+      console.log('Territory Control progress:', controlPercentage.toFixed(1), '% (target:', targetPercentage, '%)');
+      
+      if (gameMode === 'multiplayer') {
+        // For multiplayer, this would be checked after X turns
+        return GameOutcome.Playing;
+      } else {
+        return controlPercentage >= targetPercentage ? GameOutcome.Win : GameOutcome.Playing;
+      }
+    }
+    
+    case 'score_target':
+    default: {
+      const targetScore = winCondition.target || 500;
+      return currentScore >= targetScore ? GameOutcome.Win : GameOutcome.Playing;
+    }
+  }
+}
+
+export function getPuzzleModeProgress(boardState: BoardState, puzzleMode: PuzzleMode, winCondition: WinCondition) {
+  switch (puzzleMode) {
+    case 'vault_break': {
+      const requiredVaultTiles = boardState.tiles.flat().filter(t => t.isVault && t.isRequired);
+      const unlockedVaults = requiredVaultTiles.filter(t => !t.isLocked);
+      return {
+        current: unlockedVaults.length,
+        target: requiredVaultTiles.length,
+        percentage: requiredVaultTiles.length > 0 ? (unlockedVaults.length / requiredVaultTiles.length) * 100 : 0,
+      };
+    }
+    
+    case 'hidden_phrase': {
+      const phraseLetters = boardState.tiles.flat().filter(t => t.isPhraseLetter && !t.isDecoy);
+      const revealedLetters = phraseLetters.filter(t => t.isRevealed);
+      return {
+        current: revealedLetters.length,
+        target: phraseLetters.length,
+        percentage: phraseLetters.length > 0 ? (revealedLetters.length / phraseLetters.length) * 100 : 0,
+      };
+    }
+    
+    case 'territory_control': {
+      const claimableTiles = boardState.tiles.flat().filter(t => t.isClaimable);
+      const playerControlledTiles = claimableTiles.filter(t => t.ownerId === 'player1');
+      const totalClaimable = claimableTiles.length;
+      const controlPercentage = totalClaimable > 0 ? (playerControlledTiles.length / totalClaimable) * 100 : 0;
+      const targetPercentage = winCondition.targetControlPercentage || 60;
+      
+      return {
+        current: controlPercentage,
+        target: targetPercentage,
+        percentage: controlPercentage,
+      };
+    }
+    
+    case 'score_target':
+    default: {
+      return {
+        current: 0,
+        target: winCondition.target || 500,
+        percentage: 0,
+      };
+    }
+  }
 }
 
 // ============================================
@@ -196,8 +353,8 @@ export function applyWordEffect(board: BoardState, positions: Position[]): Board
  * This transforms the board definition into the active game board
  */
 export function convertBoardToGameState(boardMetadata: BoardMetadata): BoardState {
-  console.log('Converting board to game state:', boardMetadata.name);
-  const { gridSize, initialLayout } = boardMetadata;
+  console.log('Converting board to game state:', boardMetadata.name, 'puzzleMode:', boardMetadata.puzzleMode);
+  const { gridSize, initialLayout, puzzleMode } = boardMetadata;
   
   const tiles: Tile[][] = [];
   
@@ -220,35 +377,51 @@ export function convertBoardToGameState(boardMetadata: BoardMetadata): BoardStat
           type: 'letter',
         };
       } else if (boardTile.type === 'locked') {
-        // Locked tile - cannot be used
+        // Locked tile - for vault_break mode
+        const isVault = puzzleMode === 'vault_break';
         gameTile = {
           letter: '🔒',
           value: 0,
           row,
           col,
           type: 'locked',
+          isLocked: true,
+          isVault,
+          isRequired: isVault && (boardTile.metadata?.required !== false),
         };
       } else if (boardTile.type === 'puzzle') {
-        // Puzzle tile - special mechanics
+        // Puzzle tile - for hidden_phrase mode
         const letter = boardTile.letter || generateRandomLetter();
+        const isPhraseLetter = puzzleMode === 'hidden_phrase' && boardTile.metadata?.isPhraseLetter === true;
+        const hiddenLetter = boardTile.metadata?.hiddenLetter as string | undefined;
+        
         gameTile = {
-          letter,
+          letter: isPhraseLetter && !boardTile.metadata?.revealed ? '?' : letter,
           value: boardTile.value || LETTER_VALUES[letter] || 1,
           row,
           col,
           type: 'puzzle',
+          isPhraseLetter,
+          isRevealed: boardTile.metadata?.revealed === true,
+          isDecoy: boardTile.metadata?.isDecoy === true,
+          hiddenLetter: isPhraseLetter ? hiddenLetter : undefined,
           isSpecial: true,
-          specialType: 'double', // Can be customized based on metadata
+          specialType: 'double',
         };
       } else if (boardTile.type === 'objective') {
-        // Objective tile - must be cleared to win
-        const letter = boardTile.letter || '⭐';
+        // Objective tile - for territory_control mode
+        const letter = boardTile.letter || generateRandomLetter();
+        const isClaimable = puzzleMode === 'territory_control';
+        
         gameTile = {
           letter,
-          value: boardTile.value || 5,
+          value: boardTile.value || LETTER_VALUES[letter] || 5,
           row,
           col,
           type: 'objective',
+          isClaimable,
+          ownerId: undefined,
+          ownerColor: undefined,
           isSpecial: true,
         };
       } else {
@@ -281,6 +454,34 @@ function generateRandomLetter(): string {
   });
   const randomIndex = Math.floor(Math.random() * letterPool.length);
   return letterPool[randomIndex];
+}
+
+/**
+ * Gets adjacent positions for a given position
+ */
+function getAdjacentPositions(pos: Position, boardSize: number): Position[] {
+  const adjacent: Position[] = [];
+  const directions = [
+    { row: -1, col: 0 },  // up
+    { row: 1, col: 0 },   // down
+    { row: 0, col: -1 },  // left
+    { row: 0, col: 1 },   // right
+    { row: -1, col: -1 }, // up-left
+    { row: -1, col: 1 },  // up-right
+    { row: 1, col: -1 },  // down-left
+    { row: 1, col: 1 },   // down-right
+  ];
+  
+  directions.forEach(dir => {
+    const newRow = pos.row + dir.row;
+    const newCol = pos.col + dir.col;
+    
+    if (newRow >= 0 && newRow < boardSize && newCol >= 0 && newCol < boardSize) {
+      adjacent.push({ row: newRow, col: newCol });
+    }
+  });
+  
+  return adjacent;
 }
 
 /**
