@@ -14,7 +14,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import { authenticatedGet } from '@/utils/api';
+import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats } from '@/types/game';
 import { Modal } from '@/components/button';
 
@@ -49,21 +49,24 @@ export default function ProfileScreen() {
   };
 
   const handleSeedBoards = async () => {
-    console.log('[Profile] User tapped Seed Boards button');
+    console.log('[Profile] User tapped Seed Production Boards button');
     try {
       setLoading(true);
-      const { seedBoards } = await import('@/utils/boardApi');
-      const result = await seedBoards();
-      console.log('[Profile] Boards seeded:', result);
+      const result = await apiPost<{ message: string; created: number; skipped: number; total: number }>(
+        '/api/boards/seed-production',
+        {}
+      );
+      console.log('[Profile] Production boards seeded:', result);
+      const successMessage = `${result.message}\n\nCreated: ${result.created}\nSkipped: ${result.skipped}\nTotal: ${result.total}`;
       setErrorModal({
         visible: true,
-        message: `Success! ${result.message}`,
+        message: successMessage,
       });
     } catch (error: any) {
-      console.error('[Profile] Failed to seed boards:', error);
+      console.error('[Profile] Failed to seed production boards:', error);
       setErrorModal({
         visible: true,
-        message: error.message || 'Failed to seed boards',
+        message: error.message || 'Failed to seed production boards',
       });
     } finally {
       setLoading(false);
@@ -248,7 +251,9 @@ export default function ProfileScreen() {
               size={24}
               color={colors.primary}
             />
-            <Text style={[styles.actionButtonText, styles.seedButtonText]}>Seed Boards (Dev)</Text>
+            <Text style={[styles.actionButtonText, styles.seedButtonText]}>
+              Seed Production Boards (70+)
+            </Text>
             {loading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
@@ -287,10 +292,10 @@ export default function ProfileScreen() {
 
       <Modal
         visible={errorModal.visible}
-        title="Error"
+        title={errorModal.message.includes('Success') ? 'Success' : 'Error'}
         message={errorModal.message}
         onClose={() => setErrorModal({ visible: false, message: '' })}
-        type="error"
+        type={errorModal.message.includes('Success') ? 'success' : 'error'}
       />
     </SafeAreaView>
   );

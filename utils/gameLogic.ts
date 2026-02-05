@@ -1,5 +1,6 @@
 
 import { Tile, Position, BoardState, BoardTile, BoardMetadata, TileType, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
+import { analyzeWordEffects, applyWordEffectsToBoard } from './wordMechanics';
 
 const LETTER_VALUES: { [key: string]: number } = {
   A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8,
@@ -180,9 +181,6 @@ export function applyWordEffect(
   lastEffect?: any
 ): { board: BoardState; effects: any[] } {
   console.log('Applying word effect to board at positions:', positions, 'puzzleMode:', puzzleMode, 'word:', word);
-  
-  // Import word mechanics functions
-  const { analyzeWordEffects, applyWordEffectsToBoard } = require('./wordMechanics');
   
   // Analyze word to determine effects
   const effects = word ? analyzeWordEffects(word, lastEffect) : [];

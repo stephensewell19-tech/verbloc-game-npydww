@@ -13,7 +13,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import { authenticatedGet } from '@/utils/api';
+import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats } from '@/types/game';
 import { Modal } from '@/components/button';
 
@@ -47,6 +47,31 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSeedBoards = async () => {
+    console.log('[Profile] User tapped Seed Production Boards button');
+    try {
+      setLoading(true);
+      const result = await apiPost<{ message: string; created: number; skipped: number; total: number }>(
+        '/api/boards/seed-production',
+        {}
+      );
+      console.log('[Profile] Production boards seeded:', result);
+      const successMessage = `${result.message}\n\nCreated: ${result.created}\nSkipped: ${result.skipped}\nTotal: ${result.total}`;
+      setErrorModal({
+        visible: true,
+        message: successMessage,
+      });
+    } catch (error: any) {
+      console.error('[Profile] Failed to seed production boards:', error);
+      setErrorModal({
+        visible: true,
+        message: error.message || 'Failed to seed production boards',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     console.log('User tapped Sign Out button');
     try {
@@ -61,13 +86,6 @@ export default function ProfileScreen() {
   };
 
   const userName = user?.name || user?.email || 'Player';
-  const currentLevel = stats?.level || 1;
-  const currentXP = stats?.experiencePoints || 0;
-  const xpForCurrentLevel = (currentLevel - 1) * 100;
-  const xpForNextLevel = currentLevel * 100;
-  const xpProgress = currentXP - xpForCurrentLevel;
-  const xpNeeded = xpForNextLevel - xpForCurrentLevel;
-  const progressPercentage = Math.min((xpProgress / xpNeeded) * 100, 100);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -83,28 +101,7 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{userName}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
-          
-          {!statsLoading && (
-            <View style={styles.levelBadge}>
-              <IconSymbol
-                ios_icon_name="star.fill"
-                android_material_icon_name="star"
-                size={16}
-                color={colors.highlight}
-              />
-              <Text style={styles.levelText}>Level {currentLevel}</Text>
-            </View>
-          )}
         </View>
-
-        {!statsLoading && (
-          <View style={styles.xpSection}>
-            <View style={styles.xpBar}>
-              <View style={[styles.xpProgress, { width: `${progressPercentage}%` }]} />
-            </View>
-            <Text style={styles.xpText}>{xpProgress} / {xpNeeded} XP to next level</Text>
-          </View>
-        )}
 
         <View style={styles.statsContainer}>
           <Text style={styles.sectionTitle}>Your Stats</Text>
@@ -156,7 +153,7 @@ export default function ProfileScreen() {
                   color={colors.accent}
                 />
                 <Text style={styles.statValue}>{stats?.currentStreak || 0}</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
+                <Text style={styles.statLabel}>Streak</Text>
               </View>
 
               <View style={styles.statCard}>
@@ -177,8 +174,8 @@ export default function ProfileScreen() {
                   size={32}
                   color={colors.primary}
                 />
-                <Text style={styles.statValue}>{stats?.experiencePoints || 0}</Text>
-                <Text style={styles.statLabel}>Total XP</Text>
+                <Text style={styles.statValue}>Level {stats?.level || 1}</Text>
+                <Text style={styles.statLabel}>{stats?.experiencePoints || 0} XP</Text>
               </View>
             </View>
           )}
@@ -241,6 +238,32 @@ export default function ProfileScreen() {
               color={colors.textSecondary}
             />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.seedButton]}
+            onPress={handleSeedBoards}
+            disabled={loading}
+          >
+            <IconSymbol
+              ios_icon_name="square.grid.3x3.fill"
+              android_material_icon_name="grid-on"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionButtonText, styles.seedButtonText]}>
+              Seed Production Boards (70+)
+            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -268,10 +291,10 @@ export default function ProfileScreen() {
 
       <Modal
         visible={errorModal.visible}
-        title="Error"
+        title={errorModal.message.includes('Success') ? 'Success' : 'Error'}
         message={errorModal.message}
         onClose={() => setErrorModal({ visible: false, message: '' })}
-        type="error"
+        type={errorModal.message.includes('Success') ? 'success' : 'error'}
       />
     </SafeAreaView>
   );
@@ -301,43 +324,6 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  levelBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.card,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  levelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  xpSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  xpBar: {
-    height: 10,
-    backgroundColor: colors.card,
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  xpProgress: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 5,
-  },
-  xpText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   statsContainer: {
     paddingHorizontal: 20,
@@ -393,6 +379,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     fontWeight: '600',
+  },
+  seedButton: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  seedButtonText: {
+    color: colors.primary,
   },
   signOutButton: {
     backgroundColor: colors.error,

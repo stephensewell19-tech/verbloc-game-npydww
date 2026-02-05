@@ -34,8 +34,12 @@ export default function DailyChallengeScreen() {
 
   useEffect(() => {
     console.log('[DailyChallenge] Screen mounted');
-    loadDailyChallenge();
-    loadStreak();
+    const initializeChallenge = async () => {
+      await loadDailyChallenge();
+      await loadStreak();
+    };
+    initializeChallenge();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDailyChallenge = async () => {
