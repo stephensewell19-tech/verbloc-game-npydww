@@ -301,6 +301,10 @@ export default function GameScreen() {
     setGameStatus(status);
     setShowCompletionModal(true);
     
+    // Check if this is a daily challenge game
+    const isDailyChallenge = params.dailyChallenge === 'true';
+    const challengeId = params.challengeId as string | undefined;
+    
     // Send game completion to backend (solo mode only)
     if (gameMode === 'solo' && gameId) {
       try {
@@ -308,6 +312,28 @@ export default function GameScreen() {
           finalScore,
         });
         console.log('Game completion sent to backend');
+        
+        // If this is a daily challenge, also complete the challenge
+        if (isDailyChallenge && challengeId) {
+          console.log('[DailyChallenge] Completing daily challenge:', challengeId);
+          const timeTakenSeconds = Math.floor((Date.now() - (params.startTime ? parseInt(params.startTime as string) : Date.now())) / 1000);
+          
+          try {
+            const response = await authenticatedPost(`/api/daily-challenge/${challengeId}/complete`, {
+              gameId,
+              score: finalScore,
+              turnsUsed: turnLimit - turnsLeft,
+              wordsFormed,
+              efficiency,
+              timeTakenSeconds,
+              isWon: status === 'won',
+            });
+            console.log('[DailyChallenge] Challenge completion response:', response);
+          } catch (challengeErr) {
+            console.error('[DailyChallenge] Failed to complete daily challenge:', challengeErr);
+            // Don't block the UI if challenge completion fails
+          }
+        }
       } catch (err) {
         console.error('Failed to send game completion to backend:', err);
         // Don't block the UI if backend fails

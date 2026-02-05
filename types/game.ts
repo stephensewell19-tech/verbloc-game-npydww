@@ -237,3 +237,79 @@ export const TAUNT_MESSAGES: Record<TauntType, string> = {
   thinking: 'Thinking...',
   impressive: 'Impressive!',
 };
+
+// ============================================
+// DAILY CHALLENGE TYPES
+// ============================================
+
+export type DailyChallengeGameMode = 'dailyChallengeSolo' | 'dailyChallengeMultiplayer';
+
+export interface DailyChallengeRewards {
+  xp: number;
+  cosmeticUnlockIds: string[];
+  streakProgression: number;
+}
+
+export interface DailyChallenge {
+  id: string;
+  date: string; // YYYY-MM-DD
+  gameMode: DailyChallengeGameMode;
+  boardId: string;
+  puzzleMode: PuzzleMode;
+  winCondition: WinCondition;
+  turnLimit: number | null;
+  attemptsAllowed: number;
+  attemptsUsed: number;
+  isCompleted: boolean;
+  rewards: DailyChallengeRewards;
+  userBestScore: number | null;
+  timeRemaining: number; // seconds until reset
+  leaderboardId: string | null;
+}
+
+export interface DailyChallengeCompletion {
+  id: string;
+  challengeId: string;
+  userId: string;
+  score: number;
+  turnsUsed: number | null;
+  wordsFormed: number;
+  efficiency: number | null;
+  timeTakenSeconds: number | null;
+  isCompleted: boolean;
+  gameId: string | null;
+  completedAt: string;
+}
+
+export interface DailyChallengeLeaderboardEntry {
+  userId: string;
+  userName: string;
+  score: number;
+  turnsUsed: number | null;
+  timeTakenSeconds: number | null;
+  efficiency: number | null;
+  rank: number;
+}
+
+export interface DailyChallengeLeaderboard {
+  entries: DailyChallengeLeaderboardEntry[];
+  userRank: number | null;
+  totalEntries: number;
+}
+
+export interface DailyChallengeStreak {
+  currentStreak: number;
+  longestStreak: number;
+  lastCompletedDate: string | null;
+  daysUntilStreakBreak: number;
+}
+
+export interface DailyChallengeHistory {
+  challengeId: string;
+  date: string;
+  gameMode: DailyChallengeGameMode;
+  isCompleted: boolean;
+  score: number;
+  attemptsUsed: number;
+  rewards: DailyChallengeRewards;
+}

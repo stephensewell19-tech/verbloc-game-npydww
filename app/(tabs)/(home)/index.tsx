@@ -6,22 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
-import { authenticatedGet, authenticatedPost } from '@/utils/api';
+import { authenticatedGet } from '@/utils/api';
 import { Modal } from '@/components/button';
-import { PlayerStats, ActiveMultiplayerGame } from '@/types/game';
+import { PlayerStats, ActiveMultiplayerGame, DailyChallenge } from '@/types/game';
 import { useAuth } from '@/contexts/AuthContext';
 import { registerForPushNotifications, setupNotificationListeners } from '@/utils/notifications';
-
-
-
-interface DailyChallenge {
-  challengeId: string;
-  date: string;
-  boardState: any;
-  targetScore: number;
-  userCompleted: boolean;
-  userScore?: number;
-}
+import DailyChallengeCard from '@/components/DailyChallengeCard';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,10 +19,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [activeGames, setActiveGames] = useState<ActiveMultiplayerGame[]>([]);
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
+  const [dailyChallengeLoading, setDailyChallengeLoading] = useState(true);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
-  const [infoModal, setInfoModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
     console.log('[Home] Home screen mounted');
@@ -90,53 +80,32 @@ export default function HomeScreen() {
 
   const loadDailyChallenge = async () => {
     console.log('[Home] Loading daily challenge...');
+    setDailyChallengeLoading(true);
     try {
-      const challenge = await authenticatedGet<DailyChallenge>('/api/daily-challenge/today');
+      // TODO: Backend Integration - GET /api/daily-challenge/current
+      const challenge = await authenticatedGet<DailyChallenge>('/api/daily-challenge/current');
       console.log('[Home] Daily challenge loaded:', challenge);
       setDailyChallenge(challenge);
     } catch (error: any) {
       console.error('[Home] Failed to load daily challenge:', error);
+    } finally {
+      setDailyChallengeLoading(false);
     }
   };
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button - navigating to board selection');
-    // Navigate to board selection screen for solo mode
     router.push('/board-select?mode=Solo');
   };
 
   const handleMultiplayer = () => {
     console.log('[Home] User tapped Multiplayer button');
-    // Navigate to matchmaking screen
     router.push('/multiplayer-matchmaking');
   };
 
   const handleDailyChallenge = () => {
-    console.log('[Home] User tapped Daily Challenge button');
-    
-    if (!dailyChallenge) {
-      setErrorModal({
-        visible: true,
-        message: 'Daily challenge not available. Please try again later.',
-      });
-      return;
-    }
-
-    if (dailyChallenge.userCompleted) {
-      const userScoreText = String(dailyChallenge.userScore || 0);
-      const targetScoreText = String(dailyChallenge.targetScore);
-      setInfoModal({
-        visible: true,
-        message: `You've already completed today's challenge!\n\nYour score: ${userScoreText}\nTarget: ${targetScoreText}`,
-      });
-      return;
-    }
-
-    const targetScoreText = String(dailyChallenge.targetScore);
-    setInfoModal({
-      visible: true,
-      message: `Daily Challenge\n\nTarget Score: ${targetScoreText}\n\nDaily challenge gameplay coming soon!`,
-    });
+    console.log('[Home] User tapped Daily Challenge card');
+    router.push('/daily-challenge');
   };
 
   const userName = user?.name || user?.email?.split('@')[0] || 'Player';
@@ -216,6 +185,16 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* Daily Challenge Card */}
+        <View style={styles.dailyChallengeContainer}>
+          <Text style={styles.sectionTitle}>Daily Challenge</Text>
+          <DailyChallengeCard
+            challenge={dailyChallenge}
+            loading={dailyChallengeLoading}
+            onPress={handleDailyChallenge}
+          />
+        </View>
+
         {/* Main Play Buttons */}
         <View style={styles.playButtonsContainer}>
           <Text style={styles.sectionTitle}>Choose Your Mode</Text>
@@ -287,56 +266,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Daily Challenge Card */}
-        <View style={styles.dailyChallengeContainer}>
-          <Text style={styles.sectionTitle}>Daily Challenge</Text>
-          
-          <TouchableOpacity
-            style={styles.dailyChallengeCard}
-            onPress={handleDailyChallenge}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={[colors.accent, '#DB2777']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.dailyChallengeGradient}
-            >
-              <View style={styles.dailyChallengeIcon}>
-                <IconSymbol
-                  ios_icon_name="star.circle.fill"
-                  android_material_icon_name="stars"
-                  size={40}
-                  color="#FFFFFF"
-                />
-              </View>
-              <View style={styles.dailyChallengeContent}>
-                {dailyChallenge ? (
-                  <React.Fragment>
-                    <Text style={styles.dailyChallengeTitle}>
-                      {dailyChallenge.userCompleted ? 'Completed!' : 'New Challenge'}
-                    </Text>
-                    <Text style={styles.dailyChallengeSubtitle}>
-                      Target: {dailyChallenge.targetScore} points
-                    </Text>
-                  </React.Fragment>
-                ) : (
-                  <React.Fragment>
-                    <Text style={styles.dailyChallengeTitle}>Loading...</Text>
-                    <Text style={styles.dailyChallengeSubtitle}>Preparing today&apos;s challenge</Text>
-                  </React.Fragment>
-                )}
-              </View>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={24}
-                color="#FFFFFF"
-              />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
         {/* Active Games Indicator */}
         {activeGames.length > 0 && (
           <View style={styles.activeGamesContainer}>
@@ -364,7 +293,7 @@ export default function HomeScreen() {
               color={colors.highlight}
             />
             <Text style={styles.tipText}>
-              Both Solo and Multiplayer modes share the same progression system. Play your way!
+              Complete daily challenges to earn bonus XP and maintain your streak!
             </Text>
           </View>
         </View>
@@ -376,14 +305,6 @@ export default function HomeScreen() {
         message={errorModal.message}
         onClose={() => setErrorModal({ visible: false, message: '' })}
         type="error"
-      />
-
-      <Modal
-        visible={infoModal.visible}
-        title="Info"
-        message={infoModal.message}
-        onClose={() => setInfoModal({ visible: false, message: '' })}
-        type="info"
       />
 
       {loading && (
@@ -489,6 +410,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'right',
   },
+  dailyChallengeContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    gap: 12,
+  },
   playButtonsContainer: {
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -538,45 +464,6 @@ const styles = StyleSheet.create({
   },
   playButtonSubtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  dailyChallengeContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    gap: 12,
-  },
-  dailyChallengeCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  dailyChallengeGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  dailyChallengeIcon: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dailyChallengeContent: {
-    flex: 1,
-    gap: 2,
-  },
-  dailyChallengeTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  dailyChallengeSubtitle: {
-    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
   },
   activeGamesContainer: {

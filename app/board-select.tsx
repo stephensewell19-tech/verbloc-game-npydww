@@ -16,6 +16,7 @@ import { BoardListItem, PlayMode, Difficulty, PuzzleMode } from '@/types/game';
 import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal } from '@/components/button';
+import { authenticatedGet } from '@/utils/api';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
@@ -40,8 +41,26 @@ export default function BoardSelectScreen() {
     setLoading(true);
     
     try {
-      // TODO: Backend Integration - GET /api/boards with query params: mode, difficulty
-      // For now, use mock data
+      // Build query params
+      const params = new URLSearchParams();
+      params.append('mode', mode);
+      if (selectedDifficulty !== 'All') {
+        params.append('difficulty', selectedDifficulty);
+      }
+      params.append('isActive', 'true');
+      
+      console.log('[BoardSelect] Fetching boards with params:', params.toString());
+      
+      // Fetch boards from backend
+      const response = await authenticatedGet<BoardListItem[]>(`/api/boards?${params.toString()}`);
+      console.log('[BoardSelect] Boards loaded:', response.length, 'boards');
+      
+      setBoards(response);
+    } catch (error: any) {
+      console.error('[BoardSelect] Failed to load boards:', error);
+      
+      // Fallback to mock data if backend fails
+      console.log('[BoardSelect] Using fallback mock data');
       const mockBoards: BoardListItem[] = [
         {
           id: '1',
@@ -90,12 +109,6 @@ export default function BoardSelectScreen() {
       }
 
       setBoards(filteredBoards);
-    } catch (error: any) {
-      console.error('[BoardSelect] Failed to load boards:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to load boards',
-      });
     } finally {
       setLoading(false);
     }

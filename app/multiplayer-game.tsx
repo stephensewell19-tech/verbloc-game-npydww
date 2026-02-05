@@ -29,7 +29,8 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 export default function MultiplayerGameScreen() {
   const router = useRouter();
-  const { gameId } = useLocalSearchParams<{ gameId: string }>();
+  const params = useLocalSearchParams();
+  const { gameId } = params as { gameId: string };
   
   const [game, setGame] = useState<MultiplayerGame | null>(null);
   const [turnStatus, setTurnStatus] = useState<TurnStatus | null>(null);
@@ -94,6 +95,35 @@ export default function MultiplayerGameScreen() {
       const response = await authenticatedGet<MultiplayerGame>(`/api/game/multiplayer/${gameId}`);
       setGame(response);
       setLoading(false);
+      
+      // Check if game is completed and this is a daily challenge
+      if (response.status === 'completed') {
+        const isDailyChallenge = params.dailyChallenge === 'true';
+        const challengeId = params.challengeId as string | undefined;
+        
+        if (isDailyChallenge && challengeId) {
+          console.log('[DailyChallenge] Multiplayer game completed, completing challenge:', challengeId);
+          
+          // Find current player's score
+          const currentPlayer = response.players.find(p => p.isCurrentTurn);
+          const playerScore = currentPlayer?.score || 0;
+          
+          try {
+            const completionResponse = await authenticatedPost(`/api/daily-challenge/${challengeId}/complete`, {
+              gameId,
+              score: playerScore,
+              turnsUsed: response.moveHistory.length,
+              wordsFormed: response.moveHistory.length,
+              efficiency: playerScore / Math.max(response.moveHistory.length, 1),
+              timeTakenSeconds: Math.floor((new Date(response.updatedAt).getTime() - new Date(response.createdAt).getTime()) / 1000),
+              isWon: response.status === 'completed',
+            });
+            console.log('[DailyChallenge] Challenge completion response:', completionResponse);
+          } catch (challengeErr) {
+            console.error('[DailyChallenge] Failed to complete daily challenge:', challengeErr);
+          }
+        }
+      }
     } catch (err: any) {
       console.error('[MultiplayerGame] Failed to load game:', err);
       setError(err.message || 'Failed to load game');
