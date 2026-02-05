@@ -2,6 +2,16 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { BEARER_TOKEN_KEY } from "@/lib/auth";
+import * as Notifications from 'expo-notifications';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 /**
  * Backend URL is configured in app.json under expo.extra.backendUrl

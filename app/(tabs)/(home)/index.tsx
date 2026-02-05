@@ -8,15 +8,11 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
 import { authenticatedGet, authenticatedPost } from '@/utils/api';
 import { Modal } from '@/components/button';
-import { PlayerStats } from '@/types/game';
+import { PlayerStats, ActiveMultiplayerGame } from '@/types/game';
 import { useAuth } from '@/contexts/AuthContext';
+import { registerForPushNotifications, setupNotificationListeners } from '@/utils/notifications';
 
-interface ActiveGame {
-  gameId: string;
-  opponentName: string;
-  isMyTurn: boolean;
-  lastMoveAt: string;
-}
+
 
 interface DailyChallenge {
   challengeId: string;
@@ -31,7 +27,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
+  const [activeGames, setActiveGames] = useState<ActiveMultiplayerGame[]>([]);
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -43,6 +39,29 @@ export default function HomeScreen() {
     loadPlayerStats();
     loadActiveGames();
     loadDailyChallenge();
+    
+    // Register for push notifications
+    registerForPushNotifications();
+    
+    // Set up notification listeners
+    const cleanup = setupNotificationListeners(
+      (notification) => {
+        console.log('[Home] Notification received:', notification);
+        // Reload active games when notification received
+        loadActiveGames();
+      },
+      (response) => {
+        console.log('[Home] Notification tapped:', response);
+        // Navigate to game if notification contains gameId
+        const gameId = response.notification.request.content.data?.gameId;
+        if (gameId) {
+          router.push(`/multiplayer-game?gameId=${gameId}`);
+        }
+      }
+    );
+    
+    return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPlayerStats = async () => {
@@ -61,7 +80,7 @@ export default function HomeScreen() {
   const loadActiveGames = async () => {
     console.log('[Home] Loading active multiplayer games...');
     try {
-      const games = await authenticatedGet<ActiveGame[]>('/api/game/multiplayer/active');
+      const games = await authenticatedGet<ActiveMultiplayerGame[]>('/api/game/multiplayer/active');
       console.log('[Home] Active games loaded:', games);
       setActiveGames(games);
     } catch (error: any) {
@@ -88,16 +107,8 @@ export default function HomeScreen() {
 
   const handleMultiplayer = () => {
     console.log('[Home] User tapped Multiplayer button');
-    
-    if (activeGames.length > 0) {
-      // Navigate to first active game
-      const firstGame = activeGames[0];
-      console.log('[Home] Navigating to active game:', firstGame.gameId);
-      router.push(`/game?mode=multiplayer&gameId=${firstGame.gameId}`);
-    } else {
-      // Create new multiplayer game
-      router.push('/game?mode=multiplayer');
-    }
+    // Navigate to matchmaking screen
+    router.push('/multiplayer-matchmaking');
   };
 
   const handleDailyChallenge = () => {

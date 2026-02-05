@@ -32,6 +32,7 @@ export default function BoardSelectScreen() {
 
   useEffect(() => {
     loadBoards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDifficulty]); // loadBoards is stable, no need to include
 
   const loadBoards = async () => {

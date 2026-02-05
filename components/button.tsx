@@ -132,12 +132,13 @@ export const Button: React.FC<ButtonProps> = ({
 interface ModalProps {
   visible: boolean;
   title: string;
-  message: string;
+  message?: string;
   onClose: () => void;
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
   type?: "info" | "error" | "success" | "warning";
+  children?: React.ReactNode;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -149,6 +150,7 @@ export const Modal: React.FC<ModalProps> = ({
   confirmText = "OK",
   cancelText = "Cancel",
   type = "info",
+  children,
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -188,34 +190,39 @@ export const Modal: React.FC<ModalProps> = ({
           >
             {title}
           </Text>
-          <Text
-            style={[
-              modalStyles.message,
-              { color: isDark ? zincColors[300] : zincColors[600] },
-            ]}
-          >
-            {message}
-          </Text>
-          <View style={modalStyles.buttons}>
-            {onConfirm && (
-              <TouchableOpacity
-                style={[modalStyles.button, modalStyles.cancelButton]}
-                onPress={onClose}
-              >
-                <Text style={modalStyles.cancelButtonText}>{cancelText}</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
+          {message && (
+            <Text
               style={[
-                modalStyles.button,
-                modalStyles.confirmButton,
-                { backgroundColor: getTypeColor() },
+                modalStyles.message,
+                { color: isDark ? zincColors[300] : zincColors[600] },
               ]}
-              onPress={onConfirm || onClose}
             >
-              <Text style={modalStyles.confirmButtonText}>{confirmText}</Text>
-            </TouchableOpacity>
-          </View>
+              {message}
+            </Text>
+          )}
+          {children && <View style={modalStyles.childrenContainer}>{children}</View>}
+          {!children && (
+            <View style={modalStyles.buttons}>
+              {onConfirm && (
+                <TouchableOpacity
+                  style={[modalStyles.button, modalStyles.cancelButton]}
+                  onPress={onClose}
+                >
+                  <Text style={modalStyles.cancelButtonText}>{cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[
+                  modalStyles.button,
+                  modalStyles.confirmButton,
+                  { backgroundColor: getTypeColor() },
+                ]}
+                onPress={onConfirm || onClose}
+              >
+                <Text style={modalStyles.confirmButtonText}>{confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </RNModal>
@@ -252,6 +259,9 @@ const modalStyles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 24,
     textAlign: "center",
+  },
+  childrenContainer: {
+    marginTop: 8,
   },
   buttons: {
     flexDirection: "row",

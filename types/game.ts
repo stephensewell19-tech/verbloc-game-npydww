@@ -147,3 +147,91 @@ export enum GameOutcome {
   Loss = 'loss',
   Draw = 'draw',
 }
+
+// ============================================
+// MULTIPLAYER TYPES
+// ============================================
+
+export type MatchmakingType = 'random' | 'invite' | 'private';
+
+export interface MultiplayerPlayer {
+  userId: string;
+  userName: string;
+  score: number;
+  isCurrentTurn: boolean;
+  joinedAt?: string;
+}
+
+export interface MultiplayerGame {
+  gameId: string;
+  boardId: string;
+  boardState: BoardState;
+  players: MultiplayerPlayer[];
+  currentPlayerId: string;
+  status: 'pending' | 'active' | 'completed' | 'abandoned';
+  matchmakingType: MatchmakingType;
+  isLiveMatch: boolean;
+  turnTimerSeconds?: number;
+  turnGracePeriodHours?: number;
+  currentTurnStartedAt?: string;
+  inviteCode?: string;
+  maxPlayers: number;
+  moveHistory: Move[];
+  reactions: GameReaction[];
+  taunts: GameTaunt[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GameReaction {
+  id: string;
+  emoji: string;
+  userName: string;
+  userId: string;
+  targetMoveIndex: number;
+  createdAt: string;
+}
+
+export interface GameTaunt {
+  id: string;
+  tauntType: TauntType;
+  userName: string;
+  userId: string;
+  message: string;
+  createdAt: string;
+}
+
+export type TauntType = 'nice_move' | 'watch_this' | 'good_game' | 'your_turn' | 'thinking' | 'impressive';
+
+export interface TurnStatus {
+  currentPlayerId: string;
+  currentPlayerName: string;
+  turnStartedAt: string;
+  turnTimeRemaining: number; // seconds
+  isMyTurn: boolean;
+  isLiveMatch: boolean;
+  turnTimerSeconds?: number;
+  gracePeriodsHours?: number;
+}
+
+export interface ActiveMultiplayerGame {
+  gameId: string;
+  opponentName: string;
+  isMyTurn: boolean;
+  lastMoveAt: string;
+  turnTimeRemaining?: number;
+  isLiveMatch: boolean;
+  isUrgent: boolean;
+}
+
+export const ALLOWED_EMOJIS = ['👍', '🔥', '😮', '💪', '🎯', '⭐'] as const;
+export type AllowedEmoji = typeof ALLOWED_EMOJIS[number];
+
+export const TAUNT_MESSAGES: Record<TauntType, string> = {
+  nice_move: 'Nice move!',
+  watch_this: 'Watch this!',
+  good_game: 'Good game!',
+  your_turn: 'Your turn!',
+  thinking: 'Thinking...',
+  impressive: 'Impressive!',
+};
