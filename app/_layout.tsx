@@ -33,7 +33,9 @@ function RootNavigator() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) {
+      return;
+    }
 
     const inAuthGroup = segments[0] === "auth" || segments[0] === "auth-popup" || segments[0] === "auth-callback";
 
@@ -44,7 +46,7 @@ function RootNavigator() {
       // User is signed in but on auth screen, redirect to home
       router.replace("/(tabs)");
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, router]);
 
   if (loading) {
     return (

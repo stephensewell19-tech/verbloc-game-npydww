@@ -1,264 +1,207 @@
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Modal as RNModal,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Modal } from '@/components/button';
 
-interface WordMechanicsInfoProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
-export default function WordMechanicsInfo({ visible, onClose }: WordMechanicsInfoProps) {
-  const [activeTab, setActiveTab] = useState<'length' | 'letters' | 'patterns' | 'categories'>('length');
-
-  const lengthEffectsText = '3-4 letters: Standard placement with minor board interaction.\n\n5-6 letters: Trigger bonus puzzle effects like revealing tiles, shifting ownership, or weakening locks.\n\n7+ letters: Trigger major puzzle effects like unlocking vaults, rotating board sections, or large state changes.';
-  
-  const rareLettersText = 'Q, Z, X, J are rare letters with special powers:\n\n• Instantly break locked tiles\n• Amplify triggered puzzle effects\n• Allow limited rule exceptions\n\nUse these strategically to overcome obstacles!';
-  
-  const patternsText = 'Palindromes (e.g., LEVEL, RADAR):\n• Reverse a defined board region\n\nRepeated Letters (e.g., BOOK, LETTER):\n• Duplicate the previously triggered effect\n\nAll Vowels (e.g., AREA, IDEA):\n• Reveal fogged or hidden tiles';
-  
-  const categoriesText = 'Action Verbs (MOVE, ROTATE, SHIFT):\n• Move or rotate tiles on the board\n\nEmotion Words (HAPPY, SAD, LOVE):\n• Change tile ownership or state\n\nDirection Words (NORTH, SOUTH, EAST, WEST):\n• Shift rows or columns in that direction';
-
-  const renderContent = () => {
-    let contentText = '';
-    let contentTitle = '';
-    
-    if (activeTab === 'length') {
-      contentTitle = 'Word Length Effects';
-      contentText = lengthEffectsText;
-    } else if (activeTab === 'letters') {
-      contentTitle = 'Rare Letter Effects';
-      contentText = rareLettersText;
-    } else if (activeTab === 'patterns') {
-      contentTitle = 'Pattern Effects';
-      contentText = patternsText;
-    } else if (activeTab === 'categories') {
-      contentTitle = 'Category Effects';
-      contentText = categoriesText;
-    }
-    
-    return (
-      <View style={styles.contentContainer}>
-        <Text style={styles.contentTitle}>{contentTitle}</Text>
-        <Text style={styles.contentText}>{contentText}</Text>
-      </View>
-    );
-  };
+export default function WordMechanicsInfo() {
+  const [showModal, setShowModal] = useState(false);
 
   return (
-    <RNModal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Word Mechanics Guide</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="close"
-                size={28}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
+    <>
+      <TouchableOpacity
+        style={styles.infoButton}
+        onPress={() => setShowModal(true)}
+      >
+        <IconSymbol
+          ios_icon_name="info.circle"
+          android_material_icon_name="info"
+          size={24}
+          color={colors.primary}
+        />
+      </TouchableOpacity>
 
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
-            Words are strategic actions that manipulate the board
-          </Text>
-
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'length' && styles.tabActive]}
-              onPress={() => setActiveTab('length')}
-            >
-              <Text style={[styles.tabText, activeTab === 'length' && styles.tabTextActive]}>
-                Length
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'letters' && styles.tabActive]}
-              onPress={() => setActiveTab('letters')}
-            >
-              <Text style={[styles.tabText, activeTab === 'letters' && styles.tabTextActive]}>
-                Rare Letters
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'patterns' && styles.tabActive]}
-              onPress={() => setActiveTab('patterns')}
-            >
-              <Text style={[styles.tabText, activeTab === 'patterns' && styles.tabTextActive]}>
-                Patterns
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'categories' && styles.tabActive]}
-              onPress={() => setActiveTab('categories')}
-            >
-              <Text style={[styles.tabText, activeTab === 'categories' && styles.tabTextActive]}>
-                Categories
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Content */}
-          <ScrollView style={styles.scrollView}>
-            {renderContent()}
-
-            {/* Strategy Tip */}
-            <View style={styles.tipContainer}>
-              <View style={styles.tipHeader}>
-                <IconSymbol
-                  ios_icon_name="lightbulb.fill"
-                  android_material_icon_name="lightbulb"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.tipTitle}>Strategy Tip</Text>
-              </View>
-              <Text style={styles.tipText}>
-                Win by strategy and timing, not memorization. Word choice matters more than vocabulary size!
+      <Modal
+        visible={showModal}
+        title="Word Mechanics Guide"
+        message=""
+        onClose={() => setShowModal(false)}
+        type="info"
+      >
+        <ScrollView style={styles.modalContent}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Word Length Effects</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>3-4 Letters</Text>
+              <Text style={styles.effectDescription}>
+                Standard placement with minor board interaction
               </Text>
             </View>
-          </ScrollView>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>5-6 Letters</Text>
+              <Text style={styles.effectDescription}>
+                Bonus effect: reveal tiles, shift ownership, weaken locks
+              </Text>
+            </View>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>7+ Letters</Text>
+              <Text style={styles.effectDescription}>
+                Major effect: unlock vaults, rotate board sections, large state changes
+              </Text>
+            </View>
+          </View>
 
-          {/* Close Button */}
-          <TouchableOpacity style={styles.closeButtonBottom} onPress={onClose}>
-            <Text style={styles.closeButtonText}>Got It!</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </RNModal>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Rare Letter Effects</Text>
+            <Text style={styles.sectionSubtitle}>Q, Z, X, J</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectDescription}>
+                • Instantly break locked tiles
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Amplify triggered puzzle effects
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Allow limited rule exceptions
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pattern Effects</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>Palindromes</Text>
+              <Text style={styles.effectDescription}>
+                Reverse a defined board region (e.g., LEVEL, RADAR)
+              </Text>
+            </View>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>Repeated Letters</Text>
+              <Text style={styles.effectDescription}>
+                Duplicate the previously triggered effect (e.g., BOOK, HAPPY)
+              </Text>
+            </View>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>All Vowels</Text>
+              <Text style={styles.effectDescription}>
+                Reveal fogged or hidden tiles (e.g., AREA, IDEA)
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Category Effects</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>Action Verbs</Text>
+              <Text style={styles.effectDescription}>
+                Move or rotate tiles (e.g., MOVE, ROTATE, SHIFT, BREAK)
+              </Text>
+            </View>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>Emotion Words</Text>
+              <Text style={styles.effectDescription}>
+                Change tile ownership or state (e.g., HAPPY, LOVE, FEAR)
+              </Text>
+            </View>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectLabel}>Direction Words</Text>
+              <Text style={styles.effectDescription}>
+                Shift rows or columns (e.g., NORTH, SOUTH, EAST, WEST)
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Balance Rules</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectDescription}>
+                • Only ONE major effect per turn
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Chain reactions limited to a single level
+              </Text>
+              <Text style={styles.effectDescription}>
+                • No single word can instantly end a match
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Trailing players receive slightly improved letter draws
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Strategy Tips</Text>
+            
+            <View style={styles.effectItem}>
+              <Text style={styles.effectDescription}>
+                • Plan ahead: longer words trigger more powerful effects
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Use rare letters strategically to break locks
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Palindromes can reverse unfavorable board states
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Direction words help you control board flow
+              </Text>
+              <Text style={styles.effectDescription}>
+                • Repeated letters let you duplicate powerful effects
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  infoButton: {
+    padding: 8,
   },
-  modalContainer: {
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 20,
+  modalContent: {
+    maxHeight: 500,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  section: {
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 20,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  tabActive: {
-    backgroundColor: colors.primary,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    marginBottom: 20,
-  },
-  contentTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 12,
-  },
-  contentText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 22,
-  },
-  tipContainer: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    marginTop: 12,
-  },
-  tipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  tipText: {
+  sectionSubtitle: {
     fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
+    color: colors.textSecondary,
+    marginBottom: 12,
   },
-  closeButtonBottom: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 16,
+  effectItem: {
+    marginBottom: 12,
+    paddingLeft: 8,
   },
-  closeButtonText: {
-    fontSize: 16,
+  effectLabel: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  effectDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });

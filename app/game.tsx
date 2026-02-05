@@ -23,13 +23,13 @@ import {
 import { WordEffect } from '@/utils/wordMechanics';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Modal } from '@/components/button';
+import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import GameBoard from '@/components/GameBoard';
 import React, { useState, useEffect } from 'react';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
-import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -73,7 +73,8 @@ export default function GameScreen() {
     } else {
       startNewGame();
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   async function loadExistingGame(id: string) {
     console.log('Loading existing game:', id);

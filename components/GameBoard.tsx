@@ -1,7 +1,4 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { Tile, Position } from '@/types/game';
 import { colors } from '@/styles/commonStyles';
 import Animated, { 
   useAnimatedStyle, 
@@ -10,61 +7,15 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from 'react-native-reanimated';
-
-const { width } = Dimensions.get('window');
-const BOARD_PADDING = 20;
-const TILE_GAP = 6;
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { Tile, Position } from '@/types/game';
 
 interface GameBoardProps {
   tiles: Tile[][];
   selectedPositions: Position[];
   onTilePress: (row: number, col: number) => void;
   disabled?: boolean;
-}
-
-function resolveImageSource(source: string | number | any): any {
-  if (!source) return { uri: '' };
-  if (typeof source === 'string') return { uri: source };
-  return source;
-}
-
-export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
-  const boardSize = tiles.length;
-  const tileSize = (width - BOARD_PADDING * 2 - TILE_GAP * (boardSize - 1)) / boardSize;
-
-  const isTileSelected = (row: number, col: number): boolean => {
-    return selectedPositions.some(pos => pos.row === row && pos.col === col);
-  };
-
-  const getSelectionOrder = (row: number, col: number): number => {
-    const index = selectedPositions.findIndex(pos => pos.row === row && pos.col === col);
-    return index >= 0 ? index + 1 : 0;
-  };
-
-  return (
-    <View style={styles.container}>
-      {tiles.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((tile, colIndex) => {
-            const selected = isTileSelected(rowIndex, colIndex);
-            const order = getSelectionOrder(rowIndex, colIndex);
-            
-            return (
-              <TileComponent
-                key={`${rowIndex}-${colIndex}`}
-                tile={tile}
-                size={tileSize}
-                selected={selected}
-                order={order}
-                onPress={() => onTilePress(rowIndex, colIndex)}
-                disabled={disabled}
-              />
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
 }
 
 interface TileComponentProps {
@@ -76,104 +27,162 @@ interface TileComponentProps {
   disabled?: boolean;
 }
 
+const BOARD_PADDING = 16;
+const TILE_GAP = 4;
+
+function resolveImageSource(source: string | number | any): any {
+  if (!source) {
+    return { uri: '' };
+  }
+  if (typeof source === 'string') {
+    return { uri: source };
+  }
+  return source;
+}
+
+export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
+  const screenWidth = Dimensions.get('window').width;
+  const boardSize = tiles.length;
+  const availableWidth = screenWidth - (BOARD_PADDING * 2);
+  const tileSize = (availableWidth - (TILE_GAP * (boardSize - 1))) / boardSize;
+
+  function isTileSelected(row: number, col: number): boolean {
+    return selectedPositions.some(pos => pos.row === row && pos.col === col);
+  }
+
+  function getSelectionOrder(row: number, col: number): number {
+    const index = selectedPositions.findIndex(pos => pos.row === row && pos.col === col);
+    return index !== -1 ? index + 1 : 0;
+  }
+
+  return (
+    <View style={styles.container}>
+      {tiles.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.row}>
+          {row.map((tile, colIndex) => (
+            <TileComponent
+              key={`${rowIndex}-${colIndex}`}
+              tile={tile}
+              size={tileSize}
+              selected={isTileSelected(rowIndex, colIndex)}
+              order={getSelectionOrder(rowIndex, colIndex)}
+              onPress={() => onTilePress(rowIndex, colIndex)}
+              disabled={disabled}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const targetScale = selected ? 1.1 : 1;
     return {
       transform: [
-        { scale: withSpring(targetScale, { damping: 15, stiffness: 200 }) },
+        { scale: scale.value },
         { rotate: `${rotation.value}deg` },
       ],
     };
   });
 
-  const handlePress = () => {
-    if (disabled) return;
-    
-    // Don't allow interaction with locked tiles
-    if (tile.isLocked) return;
-    
-    // Trigger press animation
-    scale.value = withSequence(
-      withTiming(0.9, { duration: 100 }),
-      withSpring(1, { damping: 15, stiffness: 200 })
-    );
-    
-    // Trigger rotation animation for selection
-    if (!selected) {
-      rotation.value = withSequence(
-        withTiming(-5, { duration: 100 }),
-        withTiming(5, { duration: 100 }),
-        withTiming(0, { duration: 100 })
-      );
+  function handlePress() {
+    if (disabled || tile.isLocked) {
+      return;
     }
-    
-    onPress();
-  };
 
-  const getTileColor = () => {
-    if (selected) return colors.tileActive;
-    
-    // Territory Control - show owner color
-    if (tile.ownerId && tile.ownerColor) {
+    // Trigger animation
+    scale.value = withSequence(
+      withSpring(0.9, { damping: 10 }),
+      withSpring(1, { damping: 10 })
+    );
+
+    onPress();
+  }
+
+  function getTileColor(): string {
+    // Locked tiles
+    if (tile.isLocked) {
+      return '#6B7280'; // Gray
+    }
+
+    // Territory control - owned tiles
+    if (tile.ownerColor) {
       return tile.ownerColor;
     }
-    
-    // Vault Break - locked tiles
-    if (tile.isLocked && tile.isVault) {
-      return '#374151'; // Dark gray for locked vaults
-    }
-    
-    // Hidden Phrase - unrevealed phrase letters
-    if (tile.isPhraseLetter && !tile.isRevealed) {
-      return '#8B5CF6'; // Purple for hidden letters
-    }
-    
-    // Hidden Phrase - revealed phrase letters
-    if (tile.isPhraseLetter && tile.isRevealed) {
-      return '#10B981'; // Green for revealed letters
-    }
-    
-    // Territory Control - claimable tiles
-    if (tile.isClaimable && !tile.ownerId) {
-      return '#F59E0B'; // Orange for unclaimed territory
-    }
-    
-    // Handle board system tile types
-    if (tile.type === 'locked') return '#374151';
-    if (tile.type === 'objective') return '#8B5CF6';
-    if (tile.type === 'puzzle') return '#F59E0B';
-    
-    // Handle special tiles (legacy system)
-    if (tile.isSpecial) {
-      if (tile.specialType === 'double') return '#F59E0B';
-      if (tile.specialType === 'triple') return '#EF4444';
-      if (tile.specialType === 'wildcard') return '#8B5CF6';
-    }
-    
-    return colors.tile;
-  };
 
-  const getTileBadge = () => {
-    if (tile.isLocked && tile.isVault) return '🔒';
-    if (tile.isPhraseLetter && !tile.isRevealed) return '?';
-    if (tile.isPhraseLetter && tile.isRevealed) return '✓';
-    if (tile.ownerId) return '👤';
+    // Selected tiles
+    if (selected) {
+      return colors.primary;
+    }
+
+    // Special tiles
+    if (tile.isSpecial) {
+      if (tile.specialType === 'double') {
+        return '#3B82F6'; // Blue
+      } else if (tile.specialType === 'triple') {
+        return '#8B5CF6'; // Purple
+      } else if (tile.specialType === 'wildcard') {
+        return '#F59E0B'; // Amber
+      }
+    }
+
+    // Vault tiles
+    if (tile.isVault) {
+      return tile.isLocked ? '#DC2626' : '#10B981'; // Red if locked, green if unlocked
+    }
+
+    // Phrase tiles
+    if (tile.isPhraseLetter) {
+      return tile.isRevealed ? '#10B981' : '#6366F1'; // Green if revealed, indigo if hidden
+    }
+
+    // Claimable tiles
+    if (tile.isClaimable && !tile.ownerId) {
+      return '#D1D5DB'; // Light gray
+    }
+
+    // Default
+    return colors.card;
+  }
+
+  function getTileBadge(): string | null {
+    if (tile.isSpecial) {
+      if (tile.specialType === 'double') {
+        return '2×';
+      } else if (tile.specialType === 'triple') {
+        return '3×';
+      } else if (tile.specialType === 'wildcard') {
+        return '★';
+      }
+    }
+
+    if (tile.isVault && tile.isLocked) {
+      return '🔒';
+    }
+
+    if (tile.isPhraseLetter && !tile.isRevealed) {
+      return '?';
+    }
+
     return null;
-  };
+  }
 
   const tileColor = getTileColor();
-  const tileBadge = getTileBadge();
+  const badge = getTileBadge();
+  const displayLetter = tile.letter || '';
+  const isInteractive = !disabled && !tile.isLocked;
 
   return (
-    <Animated.View style={[animatedStyle]}>
-      <TouchableOpacity
-        onPress={handlePress}
-        disabled={disabled || tile.isLocked}
-        activeOpacity={0.7}
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={!isInteractive}
+      activeOpacity={0.7}
+    >
+      <Animated.View
         style={[
           styles.tile,
           {
@@ -181,76 +190,89 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
             height: size,
             backgroundColor: tileColor,
           },
-          tile.isLocked && styles.tileDisabled,
+          animatedStyle,
+          !isInteractive && styles.tileDisabled,
         ]}
       >
-        <Text style={styles.letter}>{tile.letter}</Text>
-        <Text style={styles.value}>{tile.value}</Text>
-        
+        {/* Selection Order Badge */}
         {selected && order > 0 && (
           <View style={styles.orderBadge}>
             <Text style={styles.orderText}>{order}</Text>
           </View>
         )}
-        
-        {!selected && tileBadge && (
+
+        {/* Letter */}
+        <Text
+          style={[
+            styles.letter,
+            { fontSize: size * 0.4 },
+            selected && styles.letterSelected,
+            tile.isLocked && styles.letterLocked,
+          ]}
+        >
+          {displayLetter}
+        </Text>
+
+        {/* Special Badge */}
+        {badge && (
           <View style={styles.specialBadge}>
-            <Text style={styles.specialText}>{tileBadge}</Text>
+            <Text style={styles.specialBadgeText}>{badge}</Text>
           </View>
         )}
-        
-        {!selected && tile.isSpecial && !tileBadge && (
-          <View style={styles.specialBadge}>
-            <Text style={styles.specialText}>
-              {tile.specialType === 'double' ? '2×' : tile.specialType === 'triple' ? '3×' : '★'}
-            </Text>
-          </View>
+
+        {/* Point Value */}
+        {!tile.isLocked && tile.value > 0 && (
+          <Text style={styles.value}>{tile.value}</Text>
         )}
-      </TouchableOpacity>
-    </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    alignSelf: 'center',
     padding: BOARD_PADDING,
   },
   row: {
     flexDirection: 'row',
+    gap: TILE_GAP,
     marginBottom: TILE_GAP,
   },
   tile: {
-    borderRadius: 12,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: TILE_GAP,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   tileDisabled: {
     opacity: 0.6,
   },
   letter: {
-    fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#FFFFFF',
+  },
+  letterSelected: {
+    color: '#FFFFFF',
+  },
+  letterLocked: {
+    color: '#9CA3AF',
   },
   value: {
-    fontSize: 10,
-    color: colors.textSecondary,
     position: 'absolute',
-    bottom: 4,
-    right: 6,
+    bottom: 2,
+    right: 4,
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   orderBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: colors.accent,
+    top: 2,
+    left: 2,
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -258,22 +280,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   orderText: {
-    color: colors.text,
     fontSize: 12,
     fontWeight: 'bold',
+    color: colors.primary,
   },
   specialBadge: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  specialText: {
-    color: colors.text,
+  specialBadgeText: {
     fontSize: 10,
     fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

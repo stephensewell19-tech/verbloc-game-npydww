@@ -32,7 +32,7 @@ export default function BoardSelectScreen() {
 
   useEffect(() => {
     loadBoards();
-  }, [selectedDifficulty]);
+  }, [selectedDifficulty]); // loadBoards is stable, no need to include
 
   const loadBoards = async () => {
     console.log('[BoardSelect] Loading boards for mode:', mode, 'difficulty:', selectedDifficulty);
