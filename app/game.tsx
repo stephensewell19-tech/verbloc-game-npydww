@@ -1,5 +1,4 @@
 
-import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +7,10 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { Position, Move, BoardState, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
+import WinConditionDisplay from '@/components/WinConditionDisplay';
+import { authenticatedPost, authenticatedGet } from '@/utils/api';
 import {
   generateInitialBoard,
   isValidWord,
@@ -21,470 +20,337 @@ import {
   checkWinCondition,
   getPuzzleModeProgress,
 } from '@/utils/gameLogic';
-import GameBoard from '@/components/GameBoard';
-import { IconSymbol } from '@/components/IconSymbol';
+import { WordEffect } from '@/utils/wordMechanics';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { authenticatedPost, authenticatedGet } from '@/utils/api';
 import { Modal } from '@/components/button';
-import WinConditionDisplay from '@/components/WinConditionDisplay';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/IconSymbol';
+import GameBoard from '@/components/GameBoard';
+import React, { useState, useEffect } from 'react';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
+import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 
 export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const gameMode = (params.mode as 'solo' | 'multiplayer') || 'solo';
-  const existingGameId = params.gameId as string | undefined;
-  const boardId = params.boardId as string | undefined;
-
-  const [boardState, setBoardState] = useState<BoardState>(generateInitialBoard(6));
-  const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
-  const [currentScore, setCurrentScore] = useState(0);
-  const [moveHistory, setMoveHistory] = useState<Move[]>([]);
-  const [showInstructions, setShowInstructions] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [gameId, setGameId] = useState<string | null>(existingGameId || null);
-  const [loading, setLoading] = useState(false);
-  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
-  const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
   
-  // Puzzle mode state
-  const [puzzleMode, setPuzzleMode] = useState<PuzzleMode>('score_target');
-  const [winCondition, setWinCondition] = useState<WinCondition>({
-    type: 'score_target',
-    target: 500,
-    description: 'Reach the target score',
-  });
-  const [turnsRemaining, setTurnsRemaining] = useState(20);
+  const [board, setBoard] = useState<BoardState | null>(null);
+  const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
+  const [currentWord, setCurrentWord] = useState('');
+  const [score, setScore] = useState(0);
+  const [movesMade, setMovesMade] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
   const [showCompletionModal, setShowCompletionModal] = useState(false);
-
-  // Multiplayer specific state
-  const [isMyTurn, setIsMyTurn] = useState(true);
-  const [opponentName, setOpponentName] = useState<string>('Opponent');
-  const [opponentScore, setOpponentScore] = useState(0);
+  const [wordsFormed, setWordsFormed] = useState(0);
+  const [lastWordEffect, setLastWordEffect] = useState<WordEffect | null>(null);
+  const [currentEffects, setCurrentEffects] = useState<WordEffect[]>([]);
+  const [showEffects, setShowEffects] = useState(false);
+  const [showMechanicsInfo, setShowMechanicsInfo] = useState(false);
+  
+  // Game configuration from params
+  const gameId = params.gameId as string | undefined;
+  const boardId = params.boardId as string | undefined;
+  const gameMode = (params.mode as 'solo' | 'multiplayer') || 'solo';
+  const puzzleMode = (params.puzzleMode as PuzzleMode) || 'score_target';
+  const targetScore = params.targetScore ? parseInt(params.targetScore as string) : 500;
+  const gridSize = params.gridSize ? parseInt(params.gridSize as string) : 7;
+  
+  const winCondition: WinCondition = {
+    type: puzzleMode === 'score_target' ? 'score' : puzzleMode,
+    target: targetScore,
+    description: `Reach ${targetScore} points`,
+    targetControlPercentage: puzzleMode === 'territory_control' ? 60 : undefined,
+  };
 
   useEffect(() => {
-    console.log('[Game] Game screen mounted with mode:', gameMode, 'boardId:', boardId);
-    if (existingGameId) {
-      loadExistingGame(existingGameId);
+    console.log('GameScreen mounted with params:', params);
+    if (gameId) {
+      loadExistingGame(gameId);
     } else {
       startNewGame();
     }
   }, []);
 
-  const loadExistingGame = async (id: string) => {
-    console.log('[Game] Loading existing game:', id);
+  async function loadExistingGame(id: string) {
+    console.log('Loading existing game:', id);
     try {
       setLoading(true);
-      const endpoint = gameMode === 'solo' 
-        ? `/api/game/solo/${id}` 
-        : `/api/game/multiplayer/${id}`;
+      const response = await authenticatedGet(`/api/game/${id}`);
+      const gameData = response;
       
-      const response = await authenticatedGet<{
-        gameId: string;
-        boardState: BoardState;
-        score: number;
-        moveHistory: Move[];
-        status: string;
-        isMyTurn?: boolean;
-        opponentName?: string;
-        opponentScore?: number;
-        puzzleMode?: PuzzleMode;
-        winCondition?: WinCondition;
-      }>(endpoint);
+      setBoard(gameData.boardState);
+      setScore(gameData.currentScore || 0);
+      setMovesMade(gameData.moveHistory?.length || 0);
+      setWordsFormed(gameData.moveHistory?.length || 0);
+      setGameStatus(gameData.status === 'completed' ? 'won' : 'playing');
       
-      console.log('[Game] Existing game loaded:', response);
-      setGameId(response.gameId);
-      setBoardState(response.boardState);
-      setCurrentScore(response.score);
-      setMoveHistory(response.moveHistory || []);
-      setGameStarted(true);
-      
-      if (response.puzzleMode) {
-        setPuzzleMode(response.puzzleMode);
-      }
-      
-      if (response.winCondition) {
-        setWinCondition(response.winCondition);
-      }
-      
-      if (gameMode === 'multiplayer') {
-        setIsMyTurn(response.isMyTurn || false);
-        setOpponentName(response.opponentName || 'Opponent');
-        setOpponentScore(response.opponentScore || 0);
-      }
-    } catch (error: any) {
-      console.error('[Game] Failed to load game:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to load game',
-      });
-      router.back();
+      console.log('Game loaded successfully');
+    } catch (err) {
+      console.error('Error loading game:', err);
+      setError('Failed to load game. Starting new game instead.');
+      startNewGame();
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const startNewGame = async () => {
-    console.log('[Game] Starting new game with mode:', gameMode, 'boardId:', boardId);
+  async function startNewGame() {
+    console.log('Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode);
     try {
       setLoading(true);
-      const endpoint = gameMode === 'solo' 
-        ? '/api/game/solo/start' 
-        : '/api/game/multiplayer/create';
-      
-      const requestBody = boardId ? { boardId } : {};
-      
-      const response = await authenticatedPost<{
-        gameId: string;
-        boardState: BoardState;
-        status: string;
-        inviteCode?: string;
-        boardName?: string;
-        puzzleMode?: PuzzleMode;
-        winCondition?: WinCondition;
-      }>(endpoint, requestBody);
-      
-      console.log('[Game] New game created successfully:', response);
-      setGameId(response.gameId);
-      setBoardState(response.boardState);
-      setCurrentScore(0);
-      setMoveHistory([]);
-      setSelectedPositions([]);
-      setGameStarted(true);
+      const initialBoard = generateInitialBoard(gridSize);
+      setBoard(initialBoard);
+      setScore(0);
+      setMovesMade(0);
+      setWordsFormed(0);
       setGameStatus('playing');
-      setTurnsRemaining(20);
+      setLastWordEffect(null);
+      setCurrentEffects([]);
       
-      if (response.puzzleMode) {
-        setPuzzleMode(response.puzzleMode);
-      }
-      
-      if (response.winCondition) {
-        setWinCondition(response.winCondition);
-      } else {
-        setWinCondition({ 
-          type: 'score_target', 
-          target: 500,
-          description: 'Reach the target score'
-        });
-      }
-      
-      if (gameMode === 'multiplayer' && response.inviteCode) {
-        setSuccessModal({
-          visible: true,
-          message: `Game created! Share invite code: ${response.inviteCode}`,
-        });
-      }
-    } catch (error: any) {
-      console.error('[Game] Failed to start game:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to start game',
-      });
-      setBoardState(generateInitialBoard(6));
-      setGameStarted(false);
+      console.log('New game started successfully');
+    } catch (err) {
+      console.error('Error starting game:', err);
+      setError('Failed to start game');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleTilePress = (row: number, col: number) => {
-    if (gameStatus !== 'playing') return;
-    if (gameMode === 'multiplayer' && !isMyTurn) {
-      setErrorModal({
-        visible: true,
-        message: "It's not your turn yet!",
-      });
+  function handleTilePress(row: number, col: number) {
+    if (!board || gameStatus !== 'playing') {
       return;
     }
-
-    console.log('[Game] Tile pressed:', row, col);
     
-    const alreadySelected = selectedPositions.some(
-      pos => pos.row === row && pos.col === col
+    console.log('Tile pressed:', row, col);
+    
+    const position = { row, col };
+    const tile = board.tiles[row][col];
+    
+    // Don't allow selecting locked tiles
+    if (tile.isLocked) {
+      console.log('Cannot select locked tile');
+      return;
+    }
+    
+    // Check if already selected
+    const existingIndex = selectedPositions.findIndex(
+      p => p.row === row && p.col === col
     );
-
-    if (alreadySelected) {
-      const lastSelected = selectedPositions[selectedPositions.length - 1];
-      if (lastSelected.row === row && lastSelected.col === col) {
+    
+    if (existingIndex !== -1) {
+      // Deselect if it's the last selected tile
+      if (existingIndex === selectedPositions.length - 1) {
+        console.log('Deselecting last tile');
         const newPositions = selectedPositions.slice(0, -1);
         setSelectedPositions(newPositions);
+        setCurrentWord(newPositions.map(p => board.tiles[p.row][p.col].letter).join(''));
       }
       return;
     }
-
-    const newPositions = [...selectedPositions, { row, col }];
-    setSelectedPositions(newPositions);
-  };
-
-  const handleSubmitWord = async () => {
-    console.log('[Game] Submitting word with positions:', selectedPositions);
     
-    if (selectedPositions.length < 3) {
-      setErrorModal({
-        visible: true,
-        message: 'Words must be at least 3 letters long.',
-      });
-      return;
-    }
-
-    if (!arePositionsAdjacent(selectedPositions)) {
-      setErrorModal({
-        visible: true,
-        message: 'Letters must be adjacent to each other.',
-      });
-      return;
-    }
-
-    const wordLetters = selectedPositions.map(
-      pos => boardState.tiles[pos.row][pos.col].letter
-    );
-    const word = wordLetters.join('');
-    const wordUpper = word.toUpperCase();
-
-    console.log('[Game] Formed word:', wordUpper);
-
-    if (!isValidWord(wordUpper)) {
-      setErrorModal({
-        visible: true,
-        message: `"${wordUpper}" is not a valid word.`,
-      });
-      return;
-    }
-
-    const score = calculateScore(wordUpper, selectedPositions, boardState);
-    const newBoardState = applyWordEffect(boardState, selectedPositions, puzzleMode, 'player1');
-
-    if (gameId) {
-      try {
-        setLoading(true);
-        const endpoint = gameMode === 'solo'
-          ? `/api/game/solo/${gameId}/move`
-          : `/api/game/multiplayer/${gameId}/move`;
-        
-        const response = await authenticatedPost<{
-          valid: boolean;
-          score: number;
-          newBoardState: BoardState;
-          gameStatus: string;
-          nextPlayerId?: string;
-        }>(endpoint, {
-          word: wordUpper,
-          positions: selectedPositions,
-          newBoardState,
-        });
-
-        console.log('[Game] Move submitted:', response);
-
-        if (response.valid) {
-          const newScore = currentScore + response.score;
-          const move: Move = {
-            word: wordUpper,
-            positions: selectedPositions,
-            score: response.score,
-            timestamp: new Date().toISOString(),
-          };
-
-          setBoardState(response.newBoardState);
-          setCurrentScore(newScore);
-          setMoveHistory([...moveHistory, move]);
-          setSelectedPositions([]);
-          
-          const newTurnsRemaining = turnsRemaining - 1;
-          setTurnsRemaining(newTurnsRemaining);
-          
-          // Check win condition based on puzzle mode
-          const outcome = checkWinCondition(
-            response.newBoardState,
-            puzzleMode,
-            winCondition,
-            newScore,
-            moveHistory.length + 1,
-            gameMode
-          );
-          
-          if (outcome === GameOutcome.Win) {
-            setGameStatus('won');
-            setShowCompletionModal(true);
-            await completeGame('won', newScore);
-          } else if (newTurnsRemaining <= 0) {
-            setGameStatus('lost');
-            setShowCompletionModal(true);
-            await completeGame('lost', newScore);
-          }
-          
-          if (gameMode === 'multiplayer') {
-            setIsMyTurn(false);
-            setSuccessModal({
-              visible: true,
-              message: `Great word! It's ${opponentName}'s turn now.`,
-            });
-          }
-        } else {
-          setErrorModal({
-            visible: true,
-            message: 'Move was not valid.',
-          });
-        }
-      } catch (error: any) {
-        console.error('[Game] Failed to submit move:', error);
-        setErrorModal({
-          visible: true,
-          message: error.message || 'Failed to submit move',
-        });
-      } finally {
-        setLoading(false);
+    // Check adjacency if not first tile
+    if (selectedPositions.length > 0) {
+      const lastPos = selectedPositions[selectedPositions.length - 1];
+      const rowDiff = Math.abs(lastPos.row - row);
+      const colDiff = Math.abs(lastPos.col - col);
+      const isAdjacent = (rowDiff === 0 && colDiff === 1) ||
+                         (rowDiff === 1 && colDiff === 0) ||
+                         (rowDiff === 1 && colDiff === 1);
+      
+      if (!isAdjacent) {
+        console.log('Tile not adjacent to last selected tile');
+        return;
       }
-    } else {
-      const newScore = currentScore + score;
-      const move: Move = {
-        word: wordUpper,
-        positions: selectedPositions,
-        score,
-        timestamp: new Date().toISOString(),
-      };
+    }
+    
+    // Add to selection
+    const newPositions = [...selectedPositions, position];
+    setSelectedPositions(newPositions);
+    
+    const newWord = newPositions.map(p => board.tiles[p.row][p.col].letter).join('');
+    setCurrentWord(newWord);
+    console.log('Current word:', newWord);
+  }
 
-      setBoardState(newBoardState);
-      setCurrentScore(newScore);
-      setMoveHistory([...moveHistory, move]);
+  async function handleSubmitWord() {
+    if (!board || selectedPositions.length < 3 || !currentWord) {
+      console.log('Cannot submit: insufficient tiles selected');
+      setError('Select at least 3 tiles to form a word');
+      return;
+    }
+    
+    console.log('Submitting word:', currentWord);
+    setSubmitting(true);
+    setError(null);
+    
+    try {
+      // Validate word
+      const isValid = isValidWord(currentWord);
+      if (!isValid) {
+        console.log('Invalid word:', currentWord);
+        setError(`"${currentWord}" is not a valid word`);
+        setSubmitting(false);
+        return;
+      }
+      
+      // Calculate score
+      const wordScore = calculateScore(currentWord, selectedPositions, board);
+      console.log('Word score:', wordScore);
+      
+      // Apply word effects using the new mechanics system
+      const { board: updatedBoard, effects } = applyWordEffect(
+        board,
+        selectedPositions,
+        puzzleMode,
+        'player1',
+        currentWord,
+        lastWordEffect
+      );
+      
+      console.log('Word effects applied:', effects.length, 'effects');
+      
+      // Show effects to player
+      if (effects.length > 0) {
+        setCurrentEffects(effects);
+        setShowEffects(true);
+        
+        // Store the primary effect for potential duplication
+        setLastWordEffect(effects[0]);
+        
+        // Hide effects after 3 seconds
+        setTimeout(() => {
+          setShowEffects(false);
+        }, 3000);
+      }
+      
+      // Update game state
+      const newScore = score + wordScore;
+      const newMovesMade = movesMade + 1;
+      const newWordsFormed = wordsFormed + 1;
+      
+      setBoard(updatedBoard);
+      setScore(newScore);
+      setMovesMade(newMovesMade);
+      setWordsFormed(newWordsFormed);
       setSelectedPositions([]);
+      setCurrentWord('');
       
-      const newTurnsRemaining = turnsRemaining - 1;
-      setTurnsRemaining(newTurnsRemaining);
+      console.log('Game state updated - Score:', newScore, 'Moves:', newMovesMade);
       
-      // Check win condition based on puzzle mode
+      // Check win condition
       const outcome = checkWinCondition(
-        newBoardState,
+        updatedBoard,
         puzzleMode,
         winCondition,
         newScore,
-        moveHistory.length + 1,
+        newMovesMade,
         gameMode
       );
       
+      console.log('Win condition check result:', outcome);
+      
       if (outcome === GameOutcome.Win) {
-        setGameStatus('won');
-        setShowCompletionModal(true);
-      } else if (newTurnsRemaining <= 0) {
-        setGameStatus('lost');
-        setShowCompletionModal(true);
+        console.log('Player won!');
+        await completeGame('won', newScore);
+      } else if (outcome === GameOutcome.Loss) {
+        console.log('Player lost!');
+        await completeGame('lost', newScore);
       }
-
-      if (!gameStarted) {
-        setGameStarted(true);
-      }
+      
+    } catch (err) {
+      console.error('Error submitting word:', err);
+      setError('Failed to submit word');
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
 
-  const completeGame = async (status: 'won' | 'lost', finalScore: number) => {
-    if (!gameId) return;
+  async function completeGame(status: 'won' | 'lost', finalScore: number) {
+    console.log('Completing game with status:', status, 'finalScore:', finalScore);
+    setGameStatus(status);
+    setShowCompletionModal(true);
     
-    console.log('[Game] Completing game with status:', status);
-    try {
-      await authenticatedPost(`/api/game/${gameId}/complete`, {
-        finalScore,
-        status,
-      });
-      console.log('[Game] Game completed successfully');
-    } catch (error) {
-      console.error('[Game] Failed to complete game:', error);
-    }
-  };
+    // TODO: Backend Integration - POST /api/game/complete with { gameId, status, finalScore, movesMade }
+  }
 
-  const handleClearSelection = () => {
-    console.log('[Game] Clearing selection');
+  function handleClearSelection() {
+    console.log('Clearing selection');
     setSelectedPositions([]);
-  };
+    setCurrentWord('');
+    setError(null);
+  }
 
-  const handleNewGame = async () => {
-    console.log('[Game] User requested new game');
-    
-    if (gameId && gameStarted && gameStatus === 'playing') {
-      try {
-        await authenticatedPost(`/api/game/${gameId}/complete`, {
-          finalScore: currentScore,
-          status: 'forfeited',
-        });
-        console.log('[Game] Previous game forfeited');
-      } catch (error) {
-        console.error('[Game] Failed to forfeit game:', error);
-      }
-    }
-
-    setGameStatus('playing');
+  function handleNewGame() {
+    console.log('Starting new game');
     setShowCompletionModal(false);
-    await startNewGame();
-  };
+    startNewGame();
+  }
 
-  const handleBackToHome = () => {
-    console.log('[Game] User navigating back to home');
+  function handleBackToHome() {
+    console.log('Navigating back to home');
     router.back();
-  };
+  }
 
-  const selectedWord = selectedPositions
-    .map(pos => boardState.tiles[pos.row][pos.col].letter)
-    .join('');
+  function getInstructionsText(): string {
+    const wordLength = currentWord.length;
+    
+    if (wordLength === 0) {
+      return 'Select tiles to form a word (min 3 letters)';
+    } else if (wordLength < 3) {
+      return `Need ${3 - wordLength} more letter${3 - wordLength > 1 ? 's' : ''}`;
+    } else if (wordLength <= 4) {
+      return 'Standard word - minor board effects';
+    } else if (wordLength <= 6) {
+      return 'Bonus word - trigger special effects!';
+    } else {
+      return 'Major word - powerful board changes!';
+    }
+  }
 
-  const gameModeText = gameMode === 'solo' ? 'Solo Play' : 'Multiplayer';
-  const turnsText = String(turnsRemaining);
-  
-  // Get puzzle mode progress
-  const progress = getPuzzleModeProgress(boardState, puzzleMode, winCondition);
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading game...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const getInstructionsText = () => {
-    const baseInstructions = `1. Tap tiles to select letters
-2. Form words by selecting adjacent tiles
-3. Words must be at least 3 letters long
-4. Special tiles give bonus points
+  if (!board) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.errorContainer}>
+          <IconSymbol
+            ios_icon_name="exclamationmark.triangle"
+            android_material_icon_name="warning"
+            size={48}
+            color={colors.error}
+          />
+          <Text style={styles.errorText}>Failed to load game</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={startNewGame}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-`;
-
-    const puzzleModeInstructions = {
-      vault_break: `🔓 VAULT BREAK MODE
-Unlock all vault tiles to win!
-- Locked tiles (🔒) cannot be used
-- Form words adjacent to vaults to unlock them
-- All required vaults must be unlocked
-
-`,
-      hidden_phrase: `🔍 HIDDEN PHRASE MODE
-Reveal the hidden phrase to win!
-- Purple tiles (?) hide letters
-- Form words using these tiles to reveal them
-- Reveal all phrase letters to complete the puzzle
-
-`,
-      territory_control: `🗺️ TERRITORY CONTROL MODE
-Claim territory to win!
-- Orange tiles can be claimed
-- Form words to claim tiles for your territory
-- Reach ${winCondition.targetControlPercentage || 60}% control to win
-
-`,
-      score_target: `🎯 SCORE TARGET MODE
-Reach the target score to win!
-- 2× doubles letter value
-- 3× triples letter value
-- ★ doubles word score
-
-`,
-    };
-
-    const multiplayerNote = gameMode === 'multiplayer' 
-      ? '\nMultiplayer: Take turns with your opponent. The player with the highest score wins!' 
-      : '';
-
-    return baseInstructions + (puzzleModeInstructions[puzzleMode] || '') + multiplayerNote;
-  };
+  const progress = getPuzzleModeProgress(board, puzzleMode, winCondition);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: gameModeText,
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
+          title: 'VERBLOC',
           headerLeft: () => (
             <TouchableOpacity onPress={handleBackToHome} style={styles.headerButton}>
               <IconSymbol
@@ -496,13 +362,10 @@ Reach the target score to win!
             </TouchableOpacity>
           ),
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => setShowInstructions(true)}
-              style={styles.headerButton}
-            >
+            <TouchableOpacity onPress={() => setShowMechanicsInfo(true)} style={styles.headerButton}>
               <IconSymbol
-                ios_icon_name="questionmark.circle"
-                android_material_icon_name="help"
+                ios_icon_name="info.circle"
+                android_material_icon_name="info"
                 size={24}
                 color={colors.text}
               />
@@ -510,168 +373,150 @@ Reach the target score to win!
           ),
         }}
       />
-
+      
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {gameMode === 'multiplayer' && (
-          <View style={[styles.turnIndicator, isMyTurn ? styles.myTurn : styles.opponentTurn]}>
-            <IconSymbol
-              ios_icon_name={isMyTurn ? 'person.fill' : 'person'}
-              android_material_icon_name={isMyTurn ? 'person' : 'person-outline'}
-              size={20}
-              color="#FFFFFF"
-            />
-            <Text style={styles.turnText}>
-              {isMyTurn ? "Your Turn" : `${opponentName}'s Turn`}
-            </Text>
+        {/* Score and Progress */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Score</Text>
+            <Text style={styles.statValue}>{score}</Text>
+          </View>
+          
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Words</Text>
+            <Text style={styles.statValue}>{wordsFormed}</Text>
+          </View>
+          
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Moves</Text>
+            <Text style={styles.statValue}>{movesMade}</Text>
+          </View>
+        </View>
+
+        {/* Win Condition Display */}
+        <WinConditionDisplay
+          puzzleMode={puzzleMode}
+          winCondition={winCondition}
+          currentScore={score}
+          progress={progress}
+        />
+
+        {/* Word Effects Display */}
+        {showEffects && currentEffects.length > 0 && (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.effectsContainer}>
+            <Text style={styles.effectsTitle}>Word Effects Triggered!</Text>
+            {currentEffects.map((effect, index) => (
+              <View key={index} style={styles.effectItem}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={styles.effectText}>{effect.description}</Text>
+              </View>
+            ))}
+          </Animated.View>
+        )}
+
+        {/* Instructions */}
+        <View style={styles.instructionsContainer}>
+          <Text style={styles.instructionsText}>{getInstructionsText()}</Text>
+        </View>
+
+        {/* Current Word Display */}
+        {currentWord && (
+          <View style={styles.currentWordContainer}>
+            <Text style={styles.currentWordLabel}>Current Word:</Text>
+            <Text style={styles.currentWord}>{currentWord}</Text>
+            <Text style={styles.wordLength}>{currentWord.length} letters</Text>
           </View>
         )}
 
-        <View style={styles.scoreContainer}>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreLabel}>Score</Text>
-            <Text style={styles.scoreValue}>{currentScore}</Text>
-          </View>
-          
-          {gameMode === 'multiplayer' && (
-            <View style={styles.scoreBox}>
-              <Text style={styles.scoreLabel}>{opponentName}</Text>
-              <Text style={styles.scoreValue}>{opponentScore}</Text>
-            </View>
-          )}
-          
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreLabel}>Turns</Text>
-            <Text style={styles.scoreValue}>{turnsText}</Text>
-          </View>
-        </View>
-
-        <WinConditionDisplay
-          puzzleMode={puzzleMode}
-          current={progress.current}
-          target={progress.target}
-          percentage={progress.percentage}
-          description={winCondition.description}
-        />
-
+        {/* Game Board */}
         <GameBoard
-          tiles={boardState.tiles}
+          tiles={board.tiles}
           selectedPositions={selectedPositions}
           onTilePress={handleTilePress}
-          disabled={gameStatus !== 'playing' || (gameMode === 'multiplayer' && !isMyTurn)}
+          disabled={gameStatus !== 'playing' || submitting}
         />
 
-        <View style={styles.wordDisplay}>
-          {selectedWord ? (
-            <Animated.View entering={FadeIn} exiting={FadeOut}>
-              <Text style={styles.wordText}>{selectedWord}</Text>
-            </Animated.View>
-          ) : (
-            <Text style={styles.wordPlaceholder}>Select tiles to form a word</Text>
-          )}
-        </View>
+        {/* Error Message */}
+        {error && (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.errorBanner}>
+            <IconSymbol
+              ios_icon_name="exclamationmark.circle"
+              android_material_icon_name="error"
+              size={20}
+              color={colors.error}
+            />
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </Animated.View>
+        )}
 
-        <View style={styles.controls}>
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.button, styles.clearButton]}
+            style={[styles.actionButton, styles.clearButton]}
             onPress={handleClearSelection}
-            disabled={selectedPositions.length === 0 || gameStatus !== 'playing'}
+            disabled={selectedPositions.length === 0 || submitting}
           >
             <IconSymbol
-              ios_icon_name="xmark"
+              ios_icon_name="xmark.circle"
               android_material_icon_name="clear"
               size={20}
-              color={colors.text}
+              color={selectedPositions.length === 0 ? colors.textSecondary : colors.text}
             />
-            <Text style={styles.buttonText}>Clear</Text>
+            <Text style={[
+              styles.actionButtonText,
+              selectedPositions.length === 0 && styles.actionButtonTextDisabled
+            ]}>
+              Clear
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.button,
+              styles.actionButton,
               styles.submitButton,
-              (selectedPositions.length < 3 || gameStatus !== 'playing' || (gameMode === 'multiplayer' && !isMyTurn)) && styles.buttonDisabled,
+              (selectedPositions.length < 3 || submitting) && styles.submitButtonDisabled
             ]}
             onPress={handleSubmitWord}
-            disabled={selectedPositions.length < 3 || gameStatus !== 'playing' || (gameMode === 'multiplayer' && !isMyTurn)}
+            disabled={selectedPositions.length < 3 || submitting}
           >
-            <IconSymbol
-              ios_icon_name="checkmark"
-              android_material_icon_name="check"
-              size={20}
-              color={colors.text}
-            />
-            <Text style={styles.buttonText}>Submit</Text>
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle"
+                  android_material_icon_name="check-circle"
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.submitButtonText}>Submit Word</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
-
-        {moveHistory.length > 0 && (
-          <View style={styles.historyContainer}>
-            <Text style={styles.historyTitle}>Recent Words</Text>
-            {moveHistory.slice(-5).reverse().map((move, index) => {
-              const moveWord = move.word;
-              const moveScore = move.score;
-              return (
-                <View key={index} style={styles.historyItem}>
-                  <Text style={styles.historyWord}>{moveWord}</Text>
-                  <Text style={styles.historyScore}>+{moveScore}</Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {gameStatus === 'playing' && (
-          <TouchableOpacity style={styles.newGameButton} onPress={handleNewGame}>
-            <IconSymbol
-              ios_icon_name="arrow.clockwise"
-              android_material_icon_name="refresh"
-              size={20}
-              color={colors.text}
-            />
-            <Text style={styles.buttonText}>New Game</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
 
-      <Modal
-        visible={showInstructions}
-        title="How to Play"
-        message={getInstructionsText()}
-        onClose={() => setShowInstructions(false)}
-        type="info"
-      />
-
-      <Modal
-        visible={errorModal.visible}
-        title="Oops!"
-        message={errorModal.message}
-        onClose={() => setErrorModal({ visible: false, message: '' })}
-        type="error"
-      />
-
-      <Modal
-        visible={successModal.visible}
-        title="Success!"
-        message={successModal.message}
-        onClose={() => setSuccessModal({ visible: false, message: '' })}
-        type="success"
-      />
-
+      {/* Game Completion Modal */}
       <GameCompletionModal
         visible={showCompletionModal}
         status={gameStatus}
-        finalScore={currentScore}
-        targetScore={winCondition.target}
-        wordsFormed={moveHistory.length}
+        finalScore={score}
+        targetScore={targetScore}
+        wordsFormed={wordsFormed}
         onPlayAgain={handleNewGame}
         onBackToHome={handleBackToHome}
       />
 
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      )}
+      {/* Word Mechanics Info Modal */}
+      <WordMechanicsInfo
+        visible={showMechanicsInfo}
+        onClose={() => setShowMechanicsInfo(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -685,78 +530,148 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   headerButton: {
     padding: 8,
   },
-  turnIndicator: {
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  myTurn: {
-    backgroundColor: colors.success,
-  },
-  opponentTurn: {
-    backgroundColor: colors.textSecondary,
-  },
-  turnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  scoreContainer: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    marginBottom: 16,
   },
-  scoreBox: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
+  statBox: {
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
+    backgroundColor: colors.card,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 100,
   },
-  scoreLabel: {
+  statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 4,
   },
-  scoreValue: {
+  statValue: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: colors.text,
+  },
+  effectsContainer: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  effectsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: colors.primary,
+    marginBottom: 8,
   },
-  wordDisplay: {
+  effectItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 20,
-    minHeight: 60,
+    marginTop: 4,
   },
-  wordText: {
+  effectText: {
+    fontSize: 14,
+    color: colors.text,
+    marginLeft: 8,
+    flex: 1,
+  },
+  instructionsContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  instructionsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  currentWordContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  currentWordLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  currentWord: {
     fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
-    letterSpacing: 2,
+    letterSpacing: 4,
   },
-  wordPlaceholder: {
-    fontSize: 16,
+  wordLength: {
+    fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 4,
   },
-  controls: {
+  errorBanner: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: colors.error + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
   },
-  button: {
+  errorBannerText: {
+    fontSize: 14,
+    color: colors.error,
+    marginLeft: 8,
+    flex: 1,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -768,66 +683,24 @@ const styles = StyleSheet.create({
   clearButton: {
     backgroundColor: colors.card,
   },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  actionButtonTextDisabled: {
+    color: colors.textSecondary,
+  },
   submitButton: {
     backgroundColor: colors.primary,
   },
-  buttonDisabled: {
+  submitButtonDisabled: {
+    backgroundColor: colors.textSecondary,
     opacity: 0.5,
   },
-  buttonText: {
+  submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
-  },
-  newGameButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    marginHorizontal: 20,
-    marginTop: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  historyContainer: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-  },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.tile,
-  },
-  historyWord: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  historyScore: {
-    fontSize: 16,
-    color: colors.success,
-    fontWeight: '600',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    color: '#FFFFFF',
   },
 });
