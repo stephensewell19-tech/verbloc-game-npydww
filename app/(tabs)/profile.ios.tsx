@@ -13,11 +13,39 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { authenticatedGet } from '@/utils/api';
+import { PlayerStats } from '@/types/game';
+import { Modal } from '@/components/button';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+
+  useEffect(() => {
+    fetchPlayerStats();
+  }, []);
+
+  const fetchPlayerStats = async () => {
+    console.log('[Profile] Fetching player stats...');
+    try {
+      setStatsLoading(true);
+      const data = await authenticatedGet<PlayerStats>('/api/player/stats');
+      console.log('[Profile] Player stats loaded:', data);
+      setStats(data);
+    } catch (error: any) {
+      console.error('[Profile] Failed to fetch player stats:', error);
+      setErrorModal({
+        visible: true,
+        message: error.message || 'Failed to load player stats',
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     console.log('User tapped Sign Out button');
@@ -33,6 +61,13 @@ export default function ProfileScreen() {
   };
 
   const userName = user?.name || user?.email || 'Player';
+  const currentLevel = stats?.level || 1;
+  const currentXP = stats?.experiencePoints || 0;
+  const xpForCurrentLevel = (currentLevel - 1) * 100;
+  const xpForNextLevel = currentLevel * 100;
+  const xpProgress = currentXP - xpForCurrentLevel;
+  const xpNeeded = xpForNextLevel - xpForCurrentLevel;
+  const progressPercentage = Math.min((xpProgress / xpNeeded) * 100, 100);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -48,56 +83,105 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{userName}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+          
+          {!statsLoading && (
+            <View style={styles.levelBadge}>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={16}
+                color={colors.highlight}
+              />
+              <Text style={styles.levelText}>Level {currentLevel}</Text>
+            </View>
+          )}
         </View>
+
+        {!statsLoading && (
+          <View style={styles.xpSection}>
+            <View style={styles.xpBar}>
+              <View style={[styles.xpProgress, { width: `${progressPercentage}%` }]} />
+            </View>
+            <Text style={styles.xpText}>{xpProgress} / {xpNeeded} XP to next level</Text>
+          </View>
+        )}
 
         <View style={styles.statsContainer}>
           <Text style={styles.sectionTitle}>Your Stats</Text>
           
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <IconSymbol
-                ios_icon_name="gamecontroller.fill"
-                android_material_icon_name="videogame-asset"
-                size={32}
-                color={colors.primary}
-              />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Games Played</Text>
+          {statsLoading ? (
+            <View style={styles.statsLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
+          ) : (
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="gamecontroller.fill"
+                  android_material_icon_name="videogame-asset"
+                  size={32}
+                  color={colors.primary}
+                />
+                <Text style={styles.statValue}>{stats?.totalGamesPlayed || 0}</Text>
+                <Text style={styles.statLabel}>Games Played</Text>
+              </View>
 
-            <View style={styles.statCard}>
-              <IconSymbol
-                ios_icon_name="trophy.fill"
-                android_material_icon_name="emoji-events"
-                size={32}
-                color={colors.success}
-              />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Wins</Text>
-            </View>
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="trophy.fill"
+                  android_material_icon_name="emoji-events"
+                  size={32}
+                  color={colors.success}
+                />
+                <Text style={styles.statValue}>{stats?.totalWins || 0}</Text>
+                <Text style={styles.statLabel}>Wins</Text>
+              </View>
 
-            <View style={styles.statCard}>
-              <IconSymbol
-                ios_icon_name="star.fill"
-                android_material_icon_name="star"
-                size={32}
-                color={colors.highlight}
-              />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>High Score</Text>
-            </View>
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={32}
+                  color={colors.highlight}
+                />
+                <Text style={styles.statValue}>{stats?.highestScore || 0}</Text>
+                <Text style={styles.statLabel}>High Score</Text>
+              </View>
 
-            <View style={styles.statCard}>
-              <IconSymbol
-                ios_icon_name="flame.fill"
-                android_material_icon_name="local-fire-department"
-                size={32}
-                color={colors.accent}
-              />
-              <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Streak</Text>
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="flame.fill"
+                  android_material_icon_name="local-fire-department"
+                  size={32}
+                  color={colors.accent}
+                />
+                <Text style={styles.statValue}>{stats?.currentStreak || 0}</Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="text.bubble.fill"
+                  android_material_icon_name="chat-bubble"
+                  size={32}
+                  color={colors.secondary}
+                />
+                <Text style={styles.statValue}>{stats?.totalWordsFormed || 0}</Text>
+                <Text style={styles.statLabel}>Words Formed</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <IconSymbol
+                  ios_icon_name="chart.bar.fill"
+                  android_material_icon_name="bar-chart"
+                  size={32}
+                  color={colors.primary}
+                />
+                <Text style={styles.statValue}>{stats?.experiencePoints || 0}</Text>
+                <Text style={styles.statLabel}>Total XP</Text>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         <View style={styles.actionsContainer}>
@@ -181,6 +265,14 @@ export default function ProfileScreen() {
 
         <Text style={styles.versionText}>VERBLOC v1.0.0</Text>
       </ScrollView>
+
+      <Modal
+        visible={errorModal.visible}
+        title="Error"
+        message={errorModal.message}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        type="error"
+      />
     </SafeAreaView>
   );
 }
@@ -209,6 +301,43 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  levelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  levelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  xpSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  xpBar: {
+    height: 10,
+    backgroundColor: colors.card,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  xpProgress: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 5,
+  },
+  xpText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   statsContainer: {
     paddingHorizontal: 20,
@@ -219,6 +348,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
+  },
+  statsLoading: {
+    paddingVertical: 40,
+    alignItems: 'center',
   },
   statsGrid: {
     flexDirection: 'row',
