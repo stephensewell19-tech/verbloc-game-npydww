@@ -1,12 +1,116 @@
-/**
- * Define your database schema here using Drizzle ORM
- *
- * Example:
- * import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
- *
- * export const users = pgTable('users', {
- *   id: uuid('id').primaryKey().defaultRandom(),
- *   name: text('name').notNull(),
- *   createdAt: timestamp('created_at').notNull().defaultNow(),
- * });
- */
+import {
+  pgTable,
+  text,
+  integer,
+  uuid,
+  timestamp,
+  jsonb,
+  boolean,
+  date,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { user } from './auth-schema.js';
+
+// Player stats table
+export const playerStats = pgTable('player_stats', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  totalGamesPlayed: integer('total_games_played').default(0).notNull(),
+  totalWins: integer('total_wins').default(0).notNull(),
+  totalLosses: integer('total_losses').default(0).notNull(),
+  highestScore: integer('highest_score').default(0).notNull(),
+  currentStreak: integer('current_streak').default(0).notNull(),
+  longestStreak: integer('longest_streak').default(0).notNull(),
+  totalWordsFormed: integer('total_words_formed').default(0).notNull(),
+  experiencePoints: integer('experience_points').default(0).notNull(),
+  level: integer('level').default(1).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Games table
+export const games = pgTable('games', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameMode: text('game_mode', { enum: ['solo', 'multiplayer'] }).notNull(),
+  status: text('status', { enum: ['active', 'completed', 'abandoned'] }).notNull(),
+  boardState: jsonb('board_state').notNull(),
+  moveHistory: jsonb('move_history').default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  winnerId: text('winner_id').references(() => user.id, { onDelete: 'set null' }),
+});
+
+// Game players table
+export const gamePlayers = pgTable('game_players', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameId: uuid('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  score: integer('score').default(0).notNull(),
+  isCurrentTurn: boolean('is_current_turn').default(false).notNull(),
+  joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('game_players_game_id_user_id_idx').on(table.gameId, table.userId),
+]);
+
+// Daily challenges table
+export const dailyChallenges = pgTable('daily_challenges', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  date: date('date').notNull().unique(),
+  boardState: jsonb('board_state').notNull(),
+  targetScore: integer('target_score').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Daily challenge completions table
+export const dailyChallengeCompletions = pgTable('daily_challenge_completions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  challengeId: uuid('challenge_id').notNull().references(() => dailyChallenges.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  score: integer('score').notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('daily_challenge_completions_challenge_id_user_id_idx').on(table.challengeId, table.userId),
+]);
+
+// Relations
+export const playerStatsRelations = relations(playerStats, ({ one }) => ({
+  user: one(user, {
+    fields: [playerStats.userId],
+    references: [user.id],
+  }),
+}));
+
+export const gamesRelations = relations(games, ({ many, one }) => ({
+  players: many(gamePlayers),
+  winner: one(user, {
+    fields: [games.winnerId],
+    references: [user.id],
+  }),
+}));
+
+export const gamePlayersRelations = relations(gamePlayers, ({ one }) => ({
+  game: one(games, {
+    fields: [gamePlayers.gameId],
+    references: [games.id],
+  }),
+  user: one(user, {
+    fields: [gamePlayers.userId],
+    references: [user.id],
+  }),
+}));
+
+export const dailyChallengesRelations = relations(dailyChallenges, ({ many }) => ({
+  completions: many(dailyChallengeCompletions),
+}));
+
+export const dailyChallengeCompletionsRelations = relations(dailyChallengeCompletions, ({ one }) => ({
+  challenge: one(dailyChallenges, {
+    fields: [dailyChallengeCompletions.challengeId],
+    references: [dailyChallenges.id],
+  }),
+  user: one(user, {
+    fields: [dailyChallengeCompletions.userId],
+    references: [user.id],
+  }),
+}));

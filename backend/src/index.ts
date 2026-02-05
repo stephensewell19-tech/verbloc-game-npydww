@@ -1,18 +1,32 @@
 import { createApplication } from "@specific-dev/framework";
-import * as schema from './db/schema.js';
+import * as appSchema from './db/schema.js';
+import * as authSchema from './db/auth-schema.js';
+import { registerPlayerStatsRoutes } from './routes/player-stats.js';
+import { registerSoloGameRoutes } from './routes/solo-game.js';
+import { registerGameStateRoutes } from './routes/game-state.js';
+import { registerMultiplayerGameRoutes } from './routes/multiplayer-game.js';
+import { registerDailyChallengeRoutes } from './routes/daily-challenge.js';
+import { registerLeaderboardRoutes } from './routes/leaderboard.js';
 
-// Import route registration functions
-// import { registerUserRoutes } from './routes/users.js';
+// Combine schemas for full database type support
+const schema = { ...appSchema, ...authSchema };
 
-// Create application with schema for full database type support
+// Create application with combined schema
 export const app = await createApplication(schema);
 
 // Export App type for use in route files
 export type App = typeof app;
 
-// Register routes - add your route modules here
-// IMPORTANT: Always use registration functions to avoid circular dependency issues
-// registerUserRoutes(app);
+// Enable authentication
+app.withAuth();
+
+// Register all route modules
+registerPlayerStatsRoutes(app);
+registerSoloGameRoutes(app);
+registerGameStateRoutes(app);
+registerMultiplayerGameRoutes(app);
+registerDailyChallengeRoutes(app);
+registerLeaderboardRoutes(app);
 
 await app.run();
-app.logger.info('Application running');
+app.logger.info('VERBLOC backend running');
