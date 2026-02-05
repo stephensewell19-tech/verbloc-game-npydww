@@ -9,6 +9,7 @@ import {
   date,
   uniqueIndex,
   index,
+  numeric,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { user } from './auth-schema.js';
@@ -97,6 +98,29 @@ export const dailyChallenges = pgTable('daily_challenges', {
   date: date('date').notNull().unique(),
   boardState: jsonb('board_state').notNull(),
   targetScore: integer('target_score').notNull(),
+  gameMode: text('game_mode', { enum: ['dailyChallengeSolo', 'dailyChallengeMultiplayer'] }).default('dailyChallengeSolo').notNull(),
+  boardId: uuid('board_id').references(() => boards.id, { onDelete: 'restrict' }),
+  attemptsAllowed: integer('attempts_allowed').default(3).notNull(),
+  puzzleMode: text('puzzle_mode').default('scoreTarget').notNull(),
+  winCondition: jsonb('win_condition').$type<{
+    type: string;
+    targetValue: number;
+    description: string;
+  }>().default({
+    type: 'score',
+    targetValue: 1000,
+    description: 'Reach the target score',
+  }).notNull(),
+  turnLimit: integer('turn_limit'),
+  rewards: jsonb('rewards').$type<{
+    xp: number;
+    cosmeticUnlockIds?: string[];
+    streakProgression: number;
+  }>().default({
+    xp: 100,
+    streakProgression: 1,
+  }).notNull(),
+  leaderboardId: uuid('leaderboard_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -106,10 +130,40 @@ export const dailyChallengeCompletions = pgTable('daily_challenge_completions', 
   challengeId: uuid('challenge_id').notNull().references(() => dailyChallenges.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   score: integer('score').notNull(),
+  attemptsUsed: integer('attempts_used').default(1).notNull(),
+  turnsUsed: integer('turns_used'),
+  wordsFormed: integer('words_formed').default(0).notNull(),
+  efficiency: numeric('efficiency'),
+  timeTakenSeconds: integer('time_taken_seconds'),
+  isCompleted: boolean('is_completed').default(false).notNull(),
+  gameId: uuid('game_id').references(() => games.id, { onDelete: 'set null' }),
   completedAt: timestamp('completed_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  uniqueIndex('daily_challenge_completions_challenge_id_user_id_idx').on(table.challengeId, table.userId),
+  uniqueIndex('daily_challenge_completions_challenge_user_idx').on(table.challengeId, table.userId),
 ]);
+
+// Daily challenge leaderboards table
+export const dailyChallengeLeaderboards = pgTable('daily_challenge_leaderboards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  challengeId: uuid('challenge_id').notNull().references(() => dailyChallenges.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  score: integer('score').notNull(),
+  turnsUsed: integer('turns_used'),
+  timeTakenSeconds: integer('time_taken_seconds'),
+  efficiency: numeric('efficiency'),
+  rank: integer('rank'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Daily challenge streaks table
+export const dailyChallengeStreaks = pgTable('daily_challenge_streaks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  currentStreak: integer('current_streak').default(0).notNull(),
+  longestStreak: integer('longest_streak').default(0).notNull(),
+  lastCompletedDate: date('last_completed_date'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+});
 
 // Game reactions table
 export const gameReactions = pgTable('game_reactions', {
@@ -167,8 +221,13 @@ export const gamePlayersRelations = relations(gamePlayers, ({ one }) => ({
   }),
 }));
 
-export const dailyChallengesRelations = relations(dailyChallenges, ({ many }) => ({
+export const dailyChallengesRelations = relations(dailyChallenges, ({ many, one }) => ({
   completions: many(dailyChallengeCompletions),
+  board: one(boards, {
+    fields: [dailyChallenges.boardId],
+    references: [boards.id],
+  }),
+  leaderboardEntries: many(dailyChallengeLeaderboards),
 }));
 
 export const dailyChallengeCompletionsRelations = relations(dailyChallengeCompletions, ({ one }) => ({
@@ -178,6 +237,28 @@ export const dailyChallengeCompletionsRelations = relations(dailyChallengeComple
   }),
   user: one(user, {
     fields: [dailyChallengeCompletions.userId],
+    references: [user.id],
+  }),
+  game: one(games, {
+    fields: [dailyChallengeCompletions.gameId],
+    references: [games.id],
+  }),
+}));
+
+export const dailyChallengeLeaderboardsRelations = relations(dailyChallengeLeaderboards, ({ one }) => ({
+  challenge: one(dailyChallenges, {
+    fields: [dailyChallengeLeaderboards.challengeId],
+    references: [dailyChallenges.id],
+  }),
+  user: one(user, {
+    fields: [dailyChallengeLeaderboards.userId],
+    references: [user.id],
+  }),
+}));
+
+export const dailyChallengeStreaksRelations = relations(dailyChallengeStreaks, ({ one }) => ({
+  user: one(user, {
+    fields: [dailyChallengeStreaks.userId],
     references: [user.id],
   }),
 }));
