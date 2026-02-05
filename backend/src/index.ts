@@ -7,6 +7,7 @@ import { registerGameStateRoutes } from './routes/game-state.js';
 import { registerMultiplayerGameRoutes } from './routes/multiplayer-game.js';
 import { registerDailyChallengeRoutes } from './routes/daily-challenge.js';
 import { registerLeaderboardRoutes } from './routes/leaderboard.js';
+import { registerBoardRoutes } from './routes/boards.js';
 
 // Combine schemas for full database type support
 const schema = { ...appSchema, ...authSchema };
@@ -27,6 +28,7 @@ registerGameStateRoutes(app);
 registerMultiplayerGameRoutes(app);
 registerDailyChallengeRoutes(app);
 registerLeaderboardRoutes(app);
+registerBoardRoutes(app);
 
 await app.run();
 app.logger.info('VERBLOC backend running');

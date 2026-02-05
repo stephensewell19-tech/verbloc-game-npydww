@@ -8,9 +8,39 @@ import {
   boolean,
   date,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { user } from './auth-schema.js';
+
+// Boards table
+export const boards = pgTable('boards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  supportedModes: jsonb('supported_modes').$type<('Solo' | 'Multiplayer' | 'Both')[]>().notNull(),
+  gridSize: integer('grid_size').notNull(), // 7 or 9
+  initialLayout: jsonb('initial_layout').$type<Array<Array<{
+    type: 'letter' | 'locked' | 'puzzle' | 'objective';
+    letter?: string;
+    value?: number;
+    metadata?: Record<string, unknown>;
+  }>>>().notNull(),
+  puzzleMode: text('puzzle_mode').notNull(), // e.g., 'score_target', 'clear_objectives', 'word_count', 'time_attack'
+  winCondition: jsonb('win_condition').$type<{
+    type: string;
+    target: number;
+    description: string;
+  }>().notNull(),
+  difficulty: text('difficulty', { enum: ['Easy', 'Medium', 'Hard', 'Special'] }).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  tags: jsonb('tags').$type<string[]>().default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('boards_difficulty_idx').on(table.difficulty),
+  index('boards_is_active_idx').on(table.isActive),
+  index('boards_puzzle_mode_idx').on(table.puzzleMode),
+]);
 
 // Player stats table
 export const playerStats = pgTable('player_stats', {
