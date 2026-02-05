@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
-import { Position, Move, BoardState, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
+import { Position, BoardState, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
 import WinConditionDisplay from '@/components/WinConditionDisplay';
 import { authenticatedPost, authenticatedGet } from '@/utils/api';
 import {
@@ -22,7 +22,6 @@ import {
 } from '@/utils/gameLogic';
 import { WordEffect } from '@/utils/wordMechanics';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { Modal } from '@/components/button';
 import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';

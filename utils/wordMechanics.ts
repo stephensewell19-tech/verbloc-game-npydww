@@ -1,5 +1,5 @@
 
-import { BoardState, Tile, Position, PuzzleMode } from '@/types/game';
+import { BoardState, Position, PuzzleMode } from '@/types/game';
 
 // ============================================
 // WORD VALIDATION
