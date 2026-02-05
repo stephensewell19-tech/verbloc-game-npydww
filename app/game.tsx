@@ -407,6 +407,21 @@ export default function GameScreen() {
     }
   }
 
+  function getPuzzleModeLabel(mode: PuzzleMode): string {
+    switch (mode) {
+      case 'vault_break':
+        return '🔓 Vault Break';
+      case 'hidden_phrase':
+        return '🔍 Hidden Phrase';
+      case 'territory_control':
+        return '🗺️ Territory Control';
+      case 'score_target':
+        return '🎯 Score Target';
+      default:
+        return '📊 Challenge';
+    }
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -475,7 +490,10 @@ export default function GameScreen() {
         {boardName && (
           <View style={[styles.boardHeader, { borderLeftColor: getDifficultyColor() }]}>
             <View style={styles.boardHeaderContent}>
-              <Text style={styles.boardHeaderName}>{boardName}</Text>
+              <View style={styles.boardHeaderTitleSection}>
+                <Text style={styles.boardHeaderName}>{boardName}</Text>
+                <Text style={styles.boardHeaderSubtitle}>{getPuzzleModeLabel(puzzleMode)}</Text>
+              </View>
               <View style={[styles.boardHeaderDifficulty, { backgroundColor: getDifficultyColor() }]}>
                 <Text style={styles.boardHeaderDifficultyIcon}>{getDifficultyIcon()}</Text>
                 <Text style={styles.boardHeaderDifficultyText}>{difficulty}</Text>
@@ -848,11 +866,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  boardHeaderTitleSection: {
+    flex: 1,
+    gap: 4,
+  },
   boardHeaderName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
-    flex: 1,
+  },
+  boardHeaderSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   boardHeaderDifficulty: {
     flexDirection: 'row',

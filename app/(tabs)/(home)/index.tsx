@@ -283,6 +283,64 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Difficulty Progression Guide */}
+        <View style={styles.difficultyProgressContainer}>
+          <Text style={styles.sectionTitle}>Difficulty Tiers</Text>
+          <View style={styles.difficultyProgressCard}>
+            <View style={styles.difficultyTier}>
+              <View style={[styles.difficultyTierBadge, { backgroundColor: '#10B981' }]}>
+                <Text style={styles.difficultyTierIcon}>🌱</Text>
+              </View>
+              <View style={styles.difficultyTierContent}>
+                <Text style={styles.difficultyTierTitle}>Easy</Text>
+                <Text style={styles.difficultyTierDescription}>Perfect for learning and casual play</Text>
+              </View>
+            </View>
+            
+            <View style={styles.difficultyTier}>
+              <View style={[styles.difficultyTierBadge, { backgroundColor: '#F59E0B' }]}>
+                <Text style={styles.difficultyTierIcon}>⚡</Text>
+              </View>
+              <View style={styles.difficultyTierContent}>
+                <Text style={styles.difficultyTierTitle}>Medium</Text>
+                <Text style={styles.difficultyTierDescription}>Requires planning and timing</Text>
+              </View>
+            </View>
+            
+            <View style={styles.difficultyTier}>
+              <View style={[styles.difficultyTierBadge, { backgroundColor: '#EF4444' }]}>
+                <Text style={styles.difficultyTierIcon}>🔥</Text>
+              </View>
+              <View style={styles.difficultyTierContent}>
+                <Text style={styles.difficultyTierTitle}>Hard</Text>
+                <Text style={styles.difficultyTierDescription}>For mastery and replay value</Text>
+              </View>
+            </View>
+            
+            <View style={styles.difficultyTier}>
+              <View style={[styles.difficultyTierBadge, { backgroundColor: '#8B5CF6' }]}>
+                <Text style={styles.difficultyTierIcon}>⭐</Text>
+              </View>
+              <View style={styles.difficultyTierContent}>
+                <Text style={styles.difficultyTierTitle}>Special</Text>
+                <Text style={styles.difficultyTierDescription}>Experimental and event-specific</Text>
+              </View>
+            </View>
+            
+            <View style={styles.difficultyNote}>
+              <IconSymbol
+                ios_icon_name="info.circle.fill"
+                android_material_icon_name="info"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={styles.difficultyNoteText}>
+                All difficulties are always available - play at your own pace!
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {/* Quick Tip */}
         <View style={styles.tipContainer}>
           <View style={styles.tipCard}>
@@ -505,6 +563,67 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  difficultyProgressContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    gap: 12,
+  },
+  difficultyProgressCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  difficultyTier: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  difficultyTierBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  difficultyTierIcon: {
+    fontSize: 20,
+  },
+  difficultyTierContent: {
+    flex: 1,
+    gap: 2,
+  },
+  difficultyTierTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  difficultyTierDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  difficultyNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.backgroundAlt,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  difficultyNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '500',
+    lineHeight: 16,
   },
   loadingOverlay: {
     position: 'absolute',

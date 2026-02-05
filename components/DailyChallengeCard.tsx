@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
-import { DailyChallenge } from '@/types/game';
+import { DailyChallenge, Difficulty } from '@/types/game';
 
 interface DailyChallengeCardProps {
   challenge: DailyChallenge | null;
@@ -96,6 +96,24 @@ export default function DailyChallengeCard({ challenge, loading, onPress }: Dail
   const statusText = getStatusText();
   const subtitleText = getSubtitleText();
 
+  const getDifficultyIcon = (difficulty: Difficulty): string => {
+    switch (difficulty) {
+      case 'Easy':
+        return '🌱';
+      case 'Medium':
+        return '⚡';
+      case 'Hard':
+        return '🔥';
+      case 'Special':
+        return '⭐';
+      default:
+        return '📊';
+    }
+  };
+
+  const difficultyIcon = challenge ? getDifficultyIcon(challenge.difficulty as Difficulty) : '';
+  const difficultyText = challenge?.difficulty || '';
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -140,6 +158,9 @@ export default function DailyChallengeCard({ challenge, loading, onPress }: Dail
                 color="rgba(255, 255, 255, 0.9)"
               />
               <Text style={styles.infoText}>Resets in {timeRemaining}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.difficultyBadge}>{difficultyIcon} {difficultyText}</Text>
             </View>
             <View style={styles.infoRow}>
               <IconSymbol
@@ -211,5 +232,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '600',
+  },
+  difficultyBadge: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontWeight: '700',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
 });
