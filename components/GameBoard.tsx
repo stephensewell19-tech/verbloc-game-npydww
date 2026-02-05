@@ -3,7 +3,14 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Tile, Position } from '@/types/game';
 import { colors } from '@/styles/commonStyles';
-import Animated, { useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring, 
+  withSequence,
+  withTiming,
+  useSharedValue,
+  withDelay,
+} from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 const BOARD_PADDING = 20;
@@ -71,12 +78,39 @@ interface TileComponentProps {
 }
 
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
+  const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
+
   const animatedStyle = useAnimatedStyle(() => {
-    const scale = selected ? withSpring(1.1) : withSpring(1);
+    const targetScale = selected ? 1.1 : 1;
     return {
-      transform: [{ scale }],
+      transform: [
+        { scale: withSpring(targetScale, { damping: 15, stiffness: 200 }) },
+        { rotate: `${rotation.value}deg` },
+      ],
     };
   });
+
+  const handlePress = () => {
+    if (disabled) return;
+    
+    // Trigger press animation
+    scale.value = withSequence(
+      withTiming(0.9, { duration: 100 }),
+      withSpring(1, { damping: 15, stiffness: 200 })
+    );
+    
+    // Trigger rotation animation for selection
+    if (!selected) {
+      rotation.value = withSequence(
+        withTiming(-5, { duration: 100 }),
+        withTiming(5, { duration: 100 }),
+        withTiming(0, { duration: 100 })
+      );
+    }
+    
+    onPress();
+  };
 
   const getTileColor = () => {
     if (selected) return colors.tileActive;
@@ -93,7 +127,7 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   return (
     <Animated.View style={[animatedStyle]}>
       <TouchableOpacity
-        onPress={onPress}
+        onPress={handlePress}
         disabled={disabled}
         activeOpacity={0.7}
         style={[

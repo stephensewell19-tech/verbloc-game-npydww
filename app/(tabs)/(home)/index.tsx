@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const [infoModal, setInfoModal] = useState({ visible: false, message: '' });
 
   useEffect(() => {
+    console.log('[Home] Home screen mounted');
     loadPlayerStats();
     loadActiveGames();
     loadDailyChallenge();
@@ -81,44 +82,20 @@ export default function HomeScreen() {
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button');
-    router.push('/game');
+    router.push('/game?mode=solo');
   };
 
-  const handleMultiplayer = async () => {
+  const handleMultiplayer = () => {
     console.log('[Home] User tapped Multiplayer button');
     
     if (activeGames.length > 0) {
-      const gamesText = activeGames.length === 1 ? 'game' : 'games';
-      setInfoModal({
-        visible: true,
-        message: `You have ${activeGames.length} active ${gamesText}. Creating multiplayer games is coming soon!`,
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await authenticatedPost<{
-        gameId: string;
-        boardState: any;
-        inviteCode: string;
-      }>('/api/game/multiplayer/create', {});
-      
-      console.log('[Home] Multiplayer game created:', response);
-      setInfoModal({
-        visible: true,
-        message: `Game created! Invite code: ${response.inviteCode}\n\nMultiplayer gameplay coming soon!`,
-      });
-      
-      await loadActiveGames();
-    } catch (error: any) {
-      console.error('[Home] Failed to create multiplayer game:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to create multiplayer game',
-      });
-    } finally {
-      setLoading(false);
+      // Navigate to first active game
+      const firstGame = activeGames[0];
+      console.log('[Home] Navigating to active game:', firstGame.gameId);
+      router.push(`/game?mode=multiplayer&gameId=${firstGame.gameId}`);
+    } else {
+      // Create new multiplayer game
+      router.push('/game?mode=multiplayer');
     }
   };
 
@@ -155,12 +132,17 @@ export default function HomeScreen() {
   const currentXP = playerStats?.experiencePoints || 0;
   const currentStreak = playerStats?.currentStreak || 0;
   
-  // Calculate XP progress (100 XP per level for simplicity)
-  const xpForCurrentLevel = (currentLevel - 1) * 100;
-  const xpForNextLevel = currentLevel * 100;
+  // Calculate XP progress (1000 XP per level)
+  const xpForCurrentLevel = (currentLevel - 1) * 1000;
+  const xpForNextLevel = currentLevel * 1000;
   const xpProgress = currentXP - xpForCurrentLevel;
   const xpNeeded = xpForNextLevel - xpForCurrentLevel;
   const progressPercentage = Math.min((xpProgress / xpNeeded) * 100, 100);
+
+  const xpProgressText = String(xpProgress);
+  const xpNeededText = String(xpNeeded);
+  const levelText = String(currentLevel);
+  const streakText = String(currentStreak);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -196,7 +178,7 @@ export default function HomeScreen() {
                       size={16}
                       color={colors.highlight}
                     />
-                    <Text style={styles.statBadgeText}>Level {currentLevel}</Text>
+                    <Text style={styles.statBadgeText}>Level {levelText}</Text>
                   </View>
                   
                   <View style={styles.statBadge}>
@@ -206,7 +188,7 @@ export default function HomeScreen() {
                       size={16}
                       color={colors.accent}
                     />
-                    <Text style={styles.statBadgeText}>{currentStreak} day streak</Text>
+                    <Text style={styles.statBadgeText}>{streakText} day streak</Text>
                   </View>
                 </View>
                 
@@ -215,7 +197,7 @@ export default function HomeScreen() {
                   <View style={styles.xpBar}>
                     <View style={[styles.xpProgress, { width: `${progressPercentage}%` }]} />
                   </View>
-                  <Text style={styles.xpText}>{xpProgress} / {xpNeeded} XP</Text>
+                  <Text style={styles.xpText}>{xpProgressText} / {xpNeededText} XP</Text>
                 </View>
               </View>
             </View>
@@ -279,7 +261,9 @@ export default function HomeScreen() {
               </View>
               <View style={styles.playButtonContent}>
                 <Text style={styles.playButtonTitle}>Multiplayer</Text>
-                <Text style={styles.playButtonSubtitle}>Challenge friends and rivals</Text>
+                <Text style={styles.playButtonSubtitle}>
+                  {activeGames.length > 0 ? 'Continue your games' : 'Challenge friends and rivals'}
+                </Text>
               </View>
               <IconSymbol
                 ios_icon_name="chevron.right"
@@ -316,19 +300,19 @@ export default function HomeScreen() {
               </View>
               <View style={styles.dailyChallengeContent}>
                 {dailyChallenge ? (
-                  <>
+                  <React.Fragment>
                     <Text style={styles.dailyChallengeTitle}>
                       {dailyChallenge.userCompleted ? 'Completed!' : 'New Challenge'}
                     </Text>
                     <Text style={styles.dailyChallengeSubtitle}>
                       Target: {dailyChallenge.targetScore} points
                     </Text>
-                  </>
+                  </React.Fragment>
                 ) : (
-                  <>
+                  <React.Fragment>
                     <Text style={styles.dailyChallengeTitle}>Loading...</Text>
                     <Text style={styles.dailyChallengeSubtitle}>Preparing today&apos;s challenge</Text>
-                  </>
+                  </React.Fragment>
                 )}
               </View>
               <IconSymbol
