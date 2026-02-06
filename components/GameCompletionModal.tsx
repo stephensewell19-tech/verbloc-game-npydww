@@ -11,7 +11,7 @@ import {
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInDown, BounceIn } from 'react-native-reanimated';
 
 interface GameCompletionModalProps {
   visible: boolean;
@@ -43,19 +43,34 @@ export default function GameCompletionModal({
   if (status === 'playing') return null;
 
   const isWin = status === 'won';
-  const title = isWin ? 'Victory!' : 'Game Over';
+  const title = isWin ? 'Victory!' : 'Nice Try!';
   
-  // Dynamic messaging based on how the game ended
+  // Positive reinforcement messaging
   let message = '';
+  let encouragement = '';
+  
   if (isWin) {
     message = 'Congratulations! You completed the puzzle!';
-  } else if (turnsUsed !== undefined && turnLimit !== undefined && turnsUsed >= turnLimit) {
-    message = 'Ran out of turns! Try forming longer words next time.';
+    encouragement = 'You mastered this challenge! Ready for the next one?';
   } else {
-    message = "Don't give up! Every game makes you stronger.";
+    const scorePercentage = Math.round((finalScore / targetScore) * 100);
+    
+    if (scorePercentage >= 80) {
+      message = 'So close! You almost had it!';
+      encouragement = 'You were just a few points away. One more try!';
+    } else if (scorePercentage >= 60) {
+      message = 'Great progress! You\'re getting better!';
+      encouragement = 'Try forming longer words for bigger scores!';
+    } else if (scorePercentage >= 40) {
+      message = 'Good effort! Keep practicing!';
+      encouragement = 'Look for special tiles to boost your score!';
+    } else {
+      message = 'Every game makes you stronger!';
+      encouragement = 'Tip: Connect 6+ letters for bonus effects!';
+    }
   }
   
-  const iconName = isWin ? 'trophy' : 'emoji-events';
+  const iconName = isWin ? 'trophy' : 'star';
   const gradientColors = isWin
     ? [colors.success, '#10B981']
     : [colors.accent, '#F59E0B'];
@@ -68,6 +83,11 @@ export default function GameCompletionModal({
   const efficiencyText = efficiency ? efficiency.toFixed(1) : '0.0';
   const turnsUsedText = turnsUsed !== undefined ? String(turnsUsed) : '0';
   const turnLimitText = turnLimit !== undefined ? String(turnLimit) : '0';
+
+  // Celebrate clever plays
+  const isHighEfficiency = efficiency && efficiency >= 50;
+  const isManyWords = wordsFormed >= 10;
+  const isNearMiss = !isWin && scorePercentage >= 90;
 
   return (
     <RNModal
@@ -87,12 +107,14 @@ export default function GameCompletionModal({
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
-            <IconSymbol
-              ios_icon_name={isWin ? 'trophy.fill' : 'star.fill'}
-              android_material_icon_name={iconName}
-              size={64}
-              color="#FFFFFF"
-            />
+            <Animated.View entering={BounceIn.delay(200)}>
+              <IconSymbol
+                ios_icon_name={isWin ? 'trophy.fill' : 'star.fill'}
+                android_material_icon_name={iconName}
+                size={64}
+                color="#FFFFFF"
+              />
+            </Animated.View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.message}>{message}</Text>
           </LinearGradient>
@@ -118,7 +140,6 @@ export default function GameCompletionModal({
               </View>
             </View>
             
-            {/* Additional Solo Mode Stats */}
             {(efficiency !== undefined || turnsUsed !== undefined) && (
               <View style={styles.additionalStatsContainer}>
                 {efficiency !== undefined && (
@@ -141,20 +162,41 @@ export default function GameCompletionModal({
               </View>
             )}
 
-            {!isWin && (
-              <View style={styles.encouragementBox}>
+            {/* Celebrate Clever Plays */}
+            {(isHighEfficiency || isManyWords || isNearMiss) && (
+              <View style={styles.achievementBox}>
                 <IconSymbol
-                  ios_icon_name="lightbulb.fill"
-                  android_material_icon_name="lightbulb"
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
                   size={20}
                   color={colors.highlight}
                 />
-                <Text style={styles.encouragementText}>
-                  Try forming longer words for more points! Special tiles give bonus multipliers.
-                </Text>
+                <View style={styles.achievementContent}>
+                  {isHighEfficiency && (
+                    <Text style={styles.achievementText}>⚡ High Efficiency! You formed powerful words!</Text>
+                  )}
+                  {isManyWords && (
+                    <Text style={styles.achievementText}>🔥 Word Master! {wordsFormedText} words formed!</Text>
+                  )}
+                  {isNearMiss && (
+                    <Text style={styles.achievementText}>💪 So Close! You nearly won - try again!</Text>
+                  )}
+                </View>
               </View>
             )}
 
+            {/* Encouragement Box */}
+            <View style={styles.encouragementBox}>
+              <IconSymbol
+                ios_icon_name="lightbulb.fill"
+                android_material_icon_name="lightbulb"
+                size={20}
+                color={colors.highlight}
+              />
+              <Text style={styles.encouragementText}>{encouragement}</Text>
+            </View>
+
+            {/* ALWAYS-VISIBLE PLAY AGAIN BUTTON (Retention Mechanic) */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[styles.button, styles.playAgainButton]}
@@ -286,6 +328,25 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  achievementBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.highlight + '20',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.highlight,
+  },
+  achievementContent: {
+    flex: 1,
+  },
+  achievementText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   encouragementBox: {
     flexDirection: 'row',

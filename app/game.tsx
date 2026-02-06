@@ -21,7 +21,7 @@ import {
   getPuzzleModeProgress,
 } from '@/utils/gameLogic';
 import { WordEffect } from '@/utils/wordMechanics';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, BounceIn, ZoomIn } from 'react-native-reanimated';
 import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -29,6 +29,7 @@ import GameBoard from '@/components/GameBoard';
 import React, { useState, useEffect } from 'react';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
+import * as Haptics from 'expo-haptics';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function GameScreen() {
   const [currentWord, setCurrentWord] = useState('');
   const [score, setScore] = useState(0);
   const [movesMade, setMovesMade] = useState(0);
-  const [turnsLeft, setTurnsLeft] = useState(20); // Default turn limit for solo mode
+  const [turnsLeft, setTurnsLeft] = useState(20);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,10 @@ export default function GameScreen() {
   const [showEffects, setShowEffects] = useState(false);
   const [showMechanicsInfo, setShowMechanicsInfo] = useState(false);
   const [efficiency, setEfficiency] = useState(0);
+  const [lastWordScore, setLastWordScore] = useState<number | null>(null);
+  const [showScorePop, setShowScorePop] = useState(false);
+  const [comboCount, setComboCount] = useState(0);
+  const [showCombo, setShowCombo] = useState(false);
   
   // Game configuration from params
   const gameId = params.gameId as string | undefined;
@@ -79,7 +84,7 @@ export default function GameScreen() {
       startNewGame();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  }, []);
 
   async function loadExistingGame(id: string) {
     console.log('Loading existing game:', id);
@@ -109,7 +114,6 @@ export default function GameScreen() {
     try {
       setLoading(true);
       
-      // Initialize board locally
       const initialBoard = generateInitialBoard(gridSize);
       setBoard(initialBoard);
       setScore(0);
@@ -122,16 +126,15 @@ export default function GameScreen() {
       setEfficiency(0);
       setError(null);
       setShowCompletionModal(false);
+      setComboCount(0);
+      setLastWordScore(null);
       
-      // Create solo game session on backend (optional - for tracking)
       if (gameMode === 'solo') {
         try {
           const response = await authenticatedPost('/api/game/solo/start', {});
           console.log('Solo game session created on backend:', response.gameId);
-          // Store gameId for later use (could use router.setParams if needed)
         } catch (err) {
           console.error('Failed to create backend game session:', err);
-          // Continue anyway - game can be played offline
         }
       }
       
@@ -151,22 +154,23 @@ export default function GameScreen() {
     
     console.log('Tile pressed:', row, col);
     
+    // Haptic feedback on tile selection
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     const position = { row, col };
     const tile = board.tiles[row][col];
     
-    // Don't allow selecting locked tiles
     if (tile.isLocked) {
       console.log('Cannot select locked tile');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
     
-    // Check if already selected
     const existingIndex = selectedPositions.findIndex(
       p => p.row === row && p.col === col
     );
     
     if (existingIndex !== -1) {
-      // Deselect if it's the last selected tile
       if (existingIndex === selectedPositions.length - 1) {
         console.log('Deselecting last tile');
         const newPositions = selectedPositions.slice(0, -1);
@@ -176,7 +180,6 @@ export default function GameScreen() {
       return;
     }
     
-    // Check adjacency if not first tile
     if (selectedPositions.length > 0) {
       const lastPos = selectedPositions[selectedPositions.length - 1];
       const rowDiff = Math.abs(lastPos.row - row);
@@ -187,23 +190,31 @@ export default function GameScreen() {
       
       if (!isAdjacent) {
         console.log('Tile not adjacent to last selected tile');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         return;
       }
     }
     
-    // Add to selection
     const newPositions = [...selectedPositions, position];
     setSelectedPositions(newPositions);
     
     const newWord = newPositions.map(p => board.tiles[p.row][p.col].letter).join('');
     setCurrentWord(newWord);
     console.log('Current word:', newWord);
+    
+    // Haptic feedback for word length milestones
+    if (newWord.length === 3) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else if (newWord.length >= 6) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
   }
 
   async function handleSubmitWord() {
     if (!board || selectedPositions.length < 3 || !currentWord) {
       console.log('Cannot submit: insufficient tiles selected');
       setError('Select at least 3 tiles to form a word');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
     
@@ -212,20 +223,26 @@ export default function GameScreen() {
     setError(null);
     
     try {
-      // Validate word
       const isValid = isValidWord(currentWord);
       if (!isValid) {
         console.log('Invalid word:', currentWord);
         setError(`"${currentWord}" is not a valid word`);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setSubmitting(false);
         return;
       }
       
-      // Calculate score
+      // SUCCESS HAPTIC - Valid word!
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
       const wordScore = calculateScore(currentWord, selectedPositions, board);
       console.log('Word score:', wordScore);
       
-      // Apply word effects using the new mechanics system
+      // Show score popup with animation
+      setLastWordScore(wordScore);
+      setShowScorePop(true);
+      setTimeout(() => setShowScorePop(false), 2000);
+      
       const { board: updatedBoard, effects } = applyWordEffect(
         board,
         selectedPositions,
@@ -237,21 +254,29 @@ export default function GameScreen() {
       
       console.log('Word effects applied:', effects.length, 'effects');
       
-      // Show effects to player with immediate visual feedback
+      // Combo tracking for positive reinforcement
+      const newComboCount = comboCount + 1;
+      setComboCount(newComboCount);
+      
+      if (newComboCount >= 3) {
+        setShowCombo(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setTimeout(() => setShowCombo(false), 2000);
+      }
+      
       if (effects.length > 0) {
         setCurrentEffects(effects);
         setShowEffects(true);
-        
-        // Store the primary effect for potential duplication
         setLastWordEffect(effects[0]);
         
-        // Hide effects after 3 seconds
+        // Extra haptic for special effects
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        
         setTimeout(() => {
           setShowEffects(false);
         }, 3000);
       }
       
-      // Update game state
       const newScore = score + wordScore;
       const newMovesMade = movesMade + 1;
       const newWordsFormed = wordsFormed + 1;
@@ -269,7 +294,6 @@ export default function GameScreen() {
       
       console.log('Game state updated - Score:', newScore, 'Moves:', newMovesMade, 'Turns left:', newTurnsLeft, 'Efficiency:', newEfficiency.toFixed(2));
       
-      // Check win condition (including turn limit for solo mode)
       const outcome = checkWinCondition(
         updatedBoard,
         puzzleMode,
@@ -284,15 +308,18 @@ export default function GameScreen() {
       
       if (outcome === GameOutcome.Win) {
         console.log('Player won!');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await completeGame('won', newScore);
       } else if (outcome === GameOutcome.Loss) {
         console.log('Player lost!');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         await completeGame('lost', newScore);
       }
       
     } catch (err) {
       console.error('Error submitting word:', err);
       setError('Failed to submit word');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSubmitting(false);
     }
@@ -303,15 +330,12 @@ export default function GameScreen() {
     setGameStatus(status);
     setShowCompletionModal(true);
     
-    // Check if this is a daily challenge game
     const isDailyChallenge = params.dailyChallenge === 'true';
     const challengeId = params.challengeId as string | undefined;
     
-    // Check if this is a special event game
     const isSpecialEvent = params.mode === 'specialEvent';
     const eventId = params.eventId as string | undefined;
     
-    // Send game completion to backend (solo mode only)
     if (gameMode === 'solo' && gameId) {
       try {
         await authenticatedPost(`/api/game/${gameId}/complete`, {
@@ -319,7 +343,6 @@ export default function GameScreen() {
         });
         console.log('Game completion sent to backend');
         
-        // If this is a daily challenge, also complete the challenge
         if (isDailyChallenge && challengeId) {
           console.log('[DailyChallenge] Completing daily challenge:', challengeId);
           const timeTakenSeconds = Math.floor((Date.now() - (params.startTime ? parseInt(params.startTime as string) : Date.now())) / 1000);
@@ -337,11 +360,9 @@ export default function GameScreen() {
             console.log('[DailyChallenge] Challenge completion response:', response);
           } catch (challengeErr) {
             console.error('[DailyChallenge] Failed to complete daily challenge:', challengeErr);
-            // Don't block the UI if challenge completion fails
           }
         }
         
-        // If this is a special event, also complete the event
         if (isSpecialEvent && eventId) {
           console.log('[SpecialEvent] Completing special event:', eventId);
           const timeTakenSeconds = Math.floor((Date.now() - (params.startTime ? parseInt(params.startTime as string) : Date.now())) / 1000);
@@ -359,12 +380,10 @@ export default function GameScreen() {
             console.log('[SpecialEvent] Event completion response:', response);
           } catch (eventErr) {
             console.error('[SpecialEvent] Failed to complete special event:', eventErr);
-            // Don't block the UI if event completion fails
           }
         }
       } catch (err) {
         console.error('Failed to send game completion to backend:', err);
-        // Don't block the UI if backend fails
       }
     }
   }
@@ -374,11 +393,13 @@ export default function GameScreen() {
     setSelectedPositions([]);
     setCurrentWord('');
     setError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
   function handleNewGame() {
     console.log('Starting new game');
     setShowCompletionModal(false);
+    setComboCount(0);
     startNewGame();
   }
 
@@ -393,7 +414,8 @@ export default function GameScreen() {
     if (wordLength === 0) {
       return 'Select tiles to form a word (min 3 letters)';
     } else if (wordLength < 3) {
-      return `Need ${3 - wordLength} more letter${3 - wordLength > 1 ? 's' : ''}`;
+      const remaining = 3 - wordLength;
+      return `Need ${remaining} more letter${remaining > 1 ? 's' : ''}`;
     } else if (wordLength <= 4) {
       return 'Standard word - minor board effects';
     } else if (wordLength <= 6) {
@@ -481,6 +503,10 @@ export default function GameScreen() {
   }
 
   const progress = getPuzzleModeProgress(board, puzzleMode, winCondition);
+  const instructionsText = getInstructionsText();
+  const difficultyColor = getDifficultyColor();
+  const difficultyIcon = getDifficultyIcon();
+  const puzzleModeLabel = getPuzzleModeLabel(puzzleMode);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -512,16 +538,15 @@ export default function GameScreen() {
       />
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Board Name and Difficulty */}
         {boardName && (
-          <View style={[styles.boardHeader, { borderLeftColor: getDifficultyColor() }]}>
+          <View style={[styles.boardHeader, { borderLeftColor: difficultyColor }]}>
             <View style={styles.boardHeaderContent}>
               <View style={styles.boardHeaderTitleSection}>
                 <Text style={styles.boardHeaderName}>{boardName}</Text>
-                <Text style={styles.boardHeaderSubtitle}>{getPuzzleModeLabel(puzzleMode)}</Text>
+                <Text style={styles.boardHeaderSubtitle}>{puzzleModeLabel}</Text>
               </View>
-              <View style={[styles.boardHeaderDifficulty, { backgroundColor: getDifficultyColor() }]}>
-                <Text style={styles.boardHeaderDifficultyIcon}>{getDifficultyIcon()}</Text>
+              <View style={[styles.boardHeaderDifficulty, { backgroundColor: difficultyColor }]}>
+                <Text style={styles.boardHeaderDifficultyIcon}>{difficultyIcon}</Text>
                 <Text style={styles.boardHeaderDifficultyText}>{difficulty}</Text>
               </View>
             </View>
@@ -567,6 +592,22 @@ export default function GameScreen() {
           turnsLeft={gameMode === 'solo' ? turnsLeft : undefined}
         />
 
+        {/* Score Popup Animation */}
+        {showScorePop && lastWordScore !== null && (
+          <Animated.View entering={BounceIn} exiting={FadeOut} style={styles.scorePopup}>
+            <Text style={styles.scorePopupText}>+{lastWordScore}</Text>
+            <Text style={styles.scorePopupLabel}>points!</Text>
+          </Animated.View>
+        )}
+
+        {/* Combo Indicator */}
+        {showCombo && (
+          <Animated.View entering={ZoomIn} exiting={FadeOut} style={styles.comboContainer}>
+            <Text style={styles.comboText}>{comboCount}x COMBO!</Text>
+            <Text style={styles.comboSubtext}>You&apos;re on fire! 🔥</Text>
+          </Animated.View>
+        )}
+
         {/* Word Effects Display */}
         {showEffects && currentEffects.length > 0 && (
           <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.effectsContainer}>
@@ -587,7 +628,7 @@ export default function GameScreen() {
 
         {/* Instructions */}
         <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionsText}>{getInstructionsText()}</Text>
+          <Text style={styles.instructionsText}>{instructionsText}</Text>
         </View>
 
         {/* Current Word Display */}
@@ -769,6 +810,52 @@ const styles = StyleSheet.create({
   },
   statValueUrgent: {
     color: colors.error,
+  },
+  scorePopup: {
+    position: 'absolute',
+    top: 120,
+    alignSelf: 'center',
+    backgroundColor: colors.success,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  scorePopupText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  scorePopupLabel: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  comboContainer: {
+    backgroundColor: colors.highlight + '30',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.highlight,
+    alignItems: 'center',
+  },
+  comboText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.highlight,
+  },
+  comboSubtext: {
+    fontSize: 14,
+    color: colors.text,
+    marginTop: 4,
   },
   effectsContainer: {
     backgroundColor: colors.primary + '20',

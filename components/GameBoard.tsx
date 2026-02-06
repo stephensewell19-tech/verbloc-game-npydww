@@ -6,8 +6,10 @@ import Animated, {
   withSequence,
   withTiming,
   useSharedValue,
+  interpolate,
+  Extrapolate,
 } from 'react-native-reanimated';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Tile, Position } from '@/types/game';
 
@@ -79,24 +81,57 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
+  const glow = useSharedValue(0);
+
+  useEffect(() => {
+    if (selected) {
+      glow.value = withSequence(
+        withTiming(1, { duration: 300 }),
+        withTiming(0.7, { duration: 500 })
+      );
+    } else {
+      glow.value = withTiming(0, { duration: 200 });
+    }
+  }, [selected, glow]);
 
   const animatedStyle = useAnimatedStyle(() => {
+    const glowOpacity = interpolate(
+      glow.value,
+      [0, 1],
+      [0, 0.8],
+      Extrapolate.CLAMP
+    );
+
     return {
       transform: [
         { scale: scale.value },
         { rotate: `${rotation.value}deg` },
       ],
+      shadowOpacity: glowOpacity,
+      shadowRadius: interpolate(
+        glow.value,
+        [0, 1],
+        [0, 12],
+        Extrapolate.CLAMP
+      ),
     };
   });
 
   function handlePress() {
     if (disabled || tile.isLocked) {
+      // Shake animation for locked tiles
+      rotation.value = withSequence(
+        withSpring(-5, { damping: 10 }),
+        withSpring(5, { damping: 10 }),
+        withSpring(0, { damping: 10 })
+      );
       return;
     }
 
-    // Trigger animation
+    // Pop animation on press
     scale.value = withSequence(
-      withSpring(0.9, { damping: 10 }),
+      withSpring(0.85, { damping: 10 }),
+      withSpring(1.05, { damping: 8 }),
       withSpring(1, { damping: 10 })
     );
 
@@ -104,48 +139,40 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   }
 
   function getTileColor(): string {
-    // Locked tiles
     if (tile.isLocked) {
-      return '#6B7280'; // Gray
+      return '#6B7280';
     }
 
-    // Territory control - owned tiles
     if (tile.ownerColor) {
       return tile.ownerColor;
     }
 
-    // Selected tiles
     if (selected) {
       return colors.primary;
     }
 
-    // Special tiles
     if (tile.isSpecial) {
       if (tile.specialType === 'double') {
-        return '#3B82F6'; // Blue
+        return '#3B82F6';
       } else if (tile.specialType === 'triple') {
-        return '#8B5CF6'; // Purple
+        return '#8B5CF6';
       } else if (tile.specialType === 'wildcard') {
-        return '#F59E0B'; // Amber
+        return '#F59E0B';
       }
     }
 
-    // Vault tiles
     if (tile.isVault) {
-      return tile.isLocked ? '#DC2626' : '#10B981'; // Red if locked, green if unlocked
+      return tile.isLocked ? '#DC2626' : '#10B981';
     }
 
-    // Phrase tiles
     if (tile.isPhraseLetter) {
-      return tile.isRevealed ? '#10B981' : '#6366F1'; // Green if revealed, indigo if hidden
+      return tile.isRevealed ? '#10B981' : '#6366F1';
     }
 
-    // Claimable tiles
     if (tile.isClaimable && !tile.ownerId) {
-      return '#D1D5DB'; // Light gray
+      return '#D1D5DB';
     }
 
-    // Default
     return colors.card;
   }
 
@@ -189,19 +216,21 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
             width: size,
             height: size,
             backgroundColor: tileColor,
+            shadowColor: selected ? colors.primary : '#000',
           },
           animatedStyle,
           !isInteractive && styles.tileDisabled,
         ]}
       >
-        {/* Selection Order Badge */}
         {selected && order > 0 && (
-          <View style={styles.orderBadge}>
+          <Animated.View 
+            entering={withSpring}
+            style={styles.orderBadge}
+          >
             <Text style={styles.orderText}>{order}</Text>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Letter */}
         <Text
           style={[
             styles.letter,
@@ -213,14 +242,12 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
           {displayLetter}
         </Text>
 
-        {/* Special Badge */}
         {badge && (
           <View style={styles.specialBadge}>
             <Text style={styles.specialBadgeText}>{badge}</Text>
           </View>
         )}
 
-        {/* Point Value */}
         {!tile.isLocked && tile.value > 0 && (
           <Text style={styles.value}>{tile.value}</Text>
         )}
@@ -246,6 +273,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    elevation: 4,
   },
   tileDisabled: {
     opacity: 0.6,

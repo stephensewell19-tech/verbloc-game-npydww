@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { DailyChallenge, Difficulty } from '@/types/game';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
 interface DailyChallengeCardProps {
   challenge: DailyChallenge | null;
@@ -114,6 +115,16 @@ export default function DailyChallengeCard({ challenge, loading, onPress }: Dail
   const difficultyIcon = challenge ? getDifficultyIcon(challenge.difficulty as Difficulty) : '';
   const difficultyText = challenge?.difficulty || '';
 
+  // Daily Streak Tracking (Retention Mechanic)
+  const currentStreak = challenge?.currentStreak || 0;
+  const longestStreak = challenge?.longestStreak || 0;
+  const showStreak = currentStreak > 0;
+
+  // Progress toward next unlock (Retention Mechanic)
+  const completedChallenges = challenge?.totalCompleted || 0;
+  const nextMilestone = Math.ceil((completedChallenges + 1) / 5) * 5;
+  const progressToMilestone = completedChallenges % 5;
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -147,6 +158,45 @@ export default function DailyChallengeCard({ challenge, loading, onPress }: Dail
             color="#FFFFFF"
           />
         </View>
+
+        {/* Daily Streak Display (Retention Mechanic) */}
+        {showStreak && (
+          <Animated.View entering={SlideInRight.delay(200)} style={styles.streakContainer}>
+            <View style={styles.streakBadge}>
+              <IconSymbol
+                ios_icon_name="flame.fill"
+                android_material_icon_name="local-fire-department"
+                size={20}
+                color={colors.highlight}
+              />
+              <Text style={styles.streakText}>{currentStreak} Day Streak!</Text>
+            </View>
+            {longestStreak > currentStreak && (
+              <Text style={styles.streakSubtext}>Best: {longestStreak} days</Text>
+            )}
+          </Animated.View>
+        )}
+
+        {/* Progress Indicator (Retention Mechanic) */}
+        {challenge && !challenge.isCompleted && (
+          <Animated.View entering={FadeIn.delay(300)} style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Progress to Milestone</Text>
+              <Text style={styles.progressValue}>{progressToMilestone}/5</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(progressToMilestone / 5) * 100}%` }
+                ]} 
+              />
+            </View>
+            <Text style={styles.progressSubtext}>
+              Complete {5 - progressToMilestone} more to reach {nextMilestone} total!
+            </Text>
+          </Animated.View>
+        )}
 
         {challenge && (
           <View style={styles.footer}>
@@ -215,6 +265,63 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  streakContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  streakSubtext: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginLeft: 28,
+  },
+  progressContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+  },
+  progressValue: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.highlight,
+    borderRadius: 4,
+  },
+  progressSubtext: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   footer: {
     flexDirection: 'row',
