@@ -90,12 +90,12 @@ export default function ProfileScreen() {
     console.log('[Profile] User tapped Seed Production Boards button');
     try {
       setLoading(true);
-      const result = await apiPost<{ success: boolean; boardsCreated: number; message: string }>(
-        '/api/boards/seed',
+      const result = await apiPost<{ success: boolean; created: number; skipped: number; total: number; message: string }>(
+        '/api/boards/seed-production',
         {}
       );
       console.log('[Profile] Production boards seeded:', result);
-      const successMessage = `${result.message}\n\nBoards Created: ${result.boardsCreated}`;
+      const successMessage = `${result.message}\n\nCreated: ${result.created}\nSkipped: ${result.skipped}\nTotal: ${result.total}`;
       setErrorModal({
         visible: true,
         message: successMessage,

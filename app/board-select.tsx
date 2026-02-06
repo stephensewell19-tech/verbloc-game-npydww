@@ -344,13 +344,63 @@ export default function BoardSelectScreen() {
       ) : boards.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol
-            ios_icon_name="tray"
-            android_material_icon_name="inbox"
+            ios_icon_name="exclamationmark.triangle.fill"
+            android_material_icon_name="warning"
             size={64}
-            color={colors.textSecondary}
+            color={colors.accent}
           />
-          <Text style={styles.emptyText}>No boards available</Text>
-          <Text style={styles.emptySubtext}>Try selecting a different difficulty</Text>
+          <Text style={styles.emptyText}>No Boards Available</Text>
+          <Text style={styles.emptySubtext}>
+            {selectedDifficulty === 'All' 
+              ? 'The board database is empty. You need to seed the boards first.'
+              : `No ${selectedDifficulty} boards found. Try selecting "All" or seed the boards.`}
+          </Text>
+          
+          {selectedDifficulty === 'All' && (
+            <View style={styles.emptyActionsContainer}>
+              <TouchableOpacity
+                style={styles.seedPromptButton}
+                onPress={() => {
+                  console.log('[BoardSelect] User tapped "Go to Profile" to seed boards');
+                  router.push('/(tabs)/profile');
+                }}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.seedPromptGradient}
+                >
+                  <IconSymbol
+                    ios_icon_name="square.grid.3x3.fill"
+                    android_material_icon_name="grid-on"
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.seedPromptText}>Go to Profile to Seed Boards</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              <View style={styles.seedInstructions}>
+                <Text style={styles.seedInstructionsTitle}>📋 Quick Setup:</Text>
+                <Text style={styles.seedInstructionsText}>
+                  1. Tap the button above to go to your Profile{'\n'}
+                  2. Scroll down and tap "Seed Production Boards (70+)"{'\n'}
+                  3. Wait for the boards to be created{'\n'}
+                  4. Come back here to start playing!
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {selectedDifficulty !== 'All' && (
+            <TouchableOpacity
+              style={styles.showAllButton}
+              onPress={() => setSelectedDifficulty('All')}
+            >
+              <Text style={styles.showAllButtonText}>Show All Difficulties</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -648,6 +698,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyActionsContainer: {
+    width: '100%',
+    marginTop: 24,
+    gap: 20,
+  },
+  seedPromptButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  seedPromptGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  seedPromptText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  seedInstructions: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  seedInstructionsTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  seedInstructionsText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  showAllButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+  },
+  showAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   scrollView: {
     flex: 1,

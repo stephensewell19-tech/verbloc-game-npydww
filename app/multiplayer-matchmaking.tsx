@@ -52,10 +52,13 @@ export default function MultiplayerMatchmakingScreen() {
       setBoards(multiplayerBoards);
       if (multiplayerBoards.length > 0) {
         setSelectedBoardId(multiplayerBoards[0].id);
+      } else {
+        // Show error if no boards available
+        setError('No multiplayer boards available. Please go to your Profile and tap "Seed Production Boards (70+)" to set up the game boards.');
       }
     } catch (err) {
       console.error('[Matchmaking] Failed to load boards:', err);
-      setError('Failed to load boards');
+      setError('Failed to load boards. Please try again or seed the boards from your Profile.');
     }
   };
 
