@@ -472,6 +472,49 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Legal Section */}
+        <View style={styles.legalContainer}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/privacy-policy')}
+          >
+            <IconSymbol
+              ios_icon_name="lock.shield.fill"
+              android_material_icon_name="privacy-tip"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.actionButtonText}>Privacy Policy</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/terms-of-service')}
+          >
+            <IconSymbol
+              ios_icon_name="doc.text.fill"
+              android_material_icon_name="description"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.actionButtonText}>Terms of Service</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={styles.signOutButton}
           onPress={() => setConfirmSignOutModal(true)}
@@ -743,6 +786,11 @@ const styles = StyleSheet.create({
   },
   seedButtonText: {
     color: colors.primary,
+  },
+  legalContainer: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+    gap: 12,
   },
   signOutButton: {
     backgroundColor: colors.error,

@@ -3,51 +3,88 @@ import { Stack } from 'expo-router';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SuperwallProvider } from '@/contexts/SuperwallContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter, useSegments } from 'expo-router';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+const ONBOARDING_KEY = '@verbloc_onboarding_completed';
+
+function RootLayoutContent() {
+  const router = useRouter();
+  const segments = useSegments();
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
+
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
+    checkOnboardingStatus();
+  }, []);
 
-  if (!fontsLoaded) {
+  const checkOnboardingStatus = async () => {
+    try {
+      const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setIsOnboardingComplete(completed === 'true');
+    } catch (error) {
+      console.error('[RootLayout] Failed to check onboarding status:', error);
+      setIsOnboardingComplete(false);
+    }
+  };
+
+  useEffect(() => {
+    if (fontsLoaded && isOnboardingComplete !== null) {
+      SplashScreen.hideAsync();
+      
+      // Redirect to onboarding if not completed
+      if (!isOnboardingComplete && segments[0] !== 'onboarding' && segments[0] !== 'auth') {
+        console.log('[RootLayout] Redirecting to onboarding');
+        router.replace('/onboarding');
+      }
+    }
+  }, [fontsLoaded, isOnboardingComplete, segments]);
+
+  if (!fontsLoaded || isOnboardingComplete === null) {
     return null;
   }
 
   return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+      <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+      <Stack.Screen name="game" options={{ headerShown: false }} />
+      <Stack.Screen name="board-select" options={{ headerShown: false }} />
+      <Stack.Screen name="multiplayer-matchmaking" options={{ headerShown: false }} />
+      <Stack.Screen name="multiplayer-game" options={{ headerShown: false }} />
+      <Stack.Screen name="daily-challenge" options={{ headerShown: false }} />
+      <Stack.Screen name="special-events" options={{ headerShown: false }} />
+      <Stack.Screen name="special-event-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="subscription" options={{ headerShown: false }} />
+      <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+      <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <ErrorBoundary>
       <AuthProvider>
         <SuperwallProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="auth" options={{ headerShown: false }} />
-            <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-            <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-            <Stack.Screen name="game" options={{ headerShown: false }} />
-            <Stack.Screen name="board-select" options={{ headerShown: false }} />
-            <Stack.Screen name="multiplayer-matchmaking" options={{ headerShown: false }} />
-            <Stack.Screen name="multiplayer-game" options={{ headerShown: false }} />
-            <Stack.Screen name="daily-challenge" options={{ headerShown: false }} />
-            <Stack.Screen name="special-events" options={{ headerShown: false }} />
-            <Stack.Screen name="special-event-detail" options={{ headerShown: false }} />
-            <Stack.Screen name="subscription" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
+          <RootLayoutContent />
         </SuperwallProvider>
       </AuthProvider>
     </ErrorBoundary>
