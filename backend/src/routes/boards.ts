@@ -2,6 +2,7 @@ import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
+import { BOARD_LIBRARY } from '../lib/board-library.js';
 
 interface CreateBoardRequest {
   name: string;
@@ -137,10 +138,7 @@ export function registerBoardRoutes(app: App) {
         'Boards retrieved'
       );
 
-      return {
-        boards: boardsResponse,
-        total: filteredByMode.length,
-      };
+      return boardsResponse;
     } catch (error) {
       app.logger.error({ err: error }, 'Failed to fetch boards');
       throw error;
@@ -449,153 +447,65 @@ export function registerBoardRoutes(app: App) {
     }
   });
 
-  // Seed database with example boards
+  // Seed database with all production boards from board library
   app.fastify.post('/api/boards/seed', async (
     request: FastifyRequest,
     reply: FastifyReply
   ) => {
-    app.logger.info({}, 'Seeding boards database');
+    app.logger.info({}, 'Seeding boards database with production board library');
 
     try {
-      const exampleBoards = [
-        // 7x7 Easy boards
-        {
-          name: 'Garden Harmony - Easy',
-          supportedModes: ['Solo', 'Multiplayer', 'Both'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'score_target',
-          winCondition: { type: 'score', target: 500, description: 'Reach 500 points' },
-          difficulty: 'Easy',
-          tags: ['beginner', 'daily'],
-        },
-        {
-          name: 'Word Quest - Easy',
-          supportedModes: ['Solo'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'word_count',
-          winCondition: { type: 'word_count', target: 10, description: 'Form 10 words' },
-          difficulty: 'Easy',
-          tags: ['beginner'],
-        },
-        // 7x7 Medium boards
-        {
-          name: 'Mountain Challenge - Medium',
-          supportedModes: ['Solo', 'Multiplayer', 'Both'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'score_target',
-          winCondition: { type: 'score', target: 1000, description: 'Reach 1000 points' },
-          difficulty: 'Medium',
-          tags: ['challenge'],
-        },
-        {
-          name: 'Puzzle Master - Medium',
-          supportedModes: ['Multiplayer'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'clear_objectives',
-          winCondition: {
-            type: 'objectives_cleared',
-            target: 5,
-            description: 'Clear 5 objectives',
-          },
-          difficulty: 'Medium',
-          tags: ['multiplayer', 'challenge'],
-        },
-        // 7x7 Hard board
-        {
-          name: 'Expert Challenge - Hard',
-          supportedModes: ['Solo', 'Multiplayer', 'Both'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'score_target',
-          winCondition: { type: 'score', target: 2000, description: 'Reach 2000 points' },
-          difficulty: 'Hard',
-          tags: ['expert', 'challenge'],
-        },
-        // 9x9 Easy boards
-        {
-          name: 'Ocean Waves - Easy 9x9',
-          supportedModes: ['Solo'] as const,
-          gridSize: 9,
-          initialLayout: Array(9)
-            .fill(null)
-            .map(() => Array(9).fill({ type: 'letter' })),
-          puzzleMode: 'score_target',
-          winCondition: { type: 'score', target: 600, description: 'Reach 600 points' },
-          difficulty: 'Easy',
-          tags: ['beginner', 'large_grid'],
-        },
-        // 9x9 Medium board
-        {
-          name: 'Sky Adventure - Medium 9x9',
-          supportedModes: ['Solo', 'Multiplayer', 'Both'] as const,
-          gridSize: 9,
-          initialLayout: Array(9)
-            .fill(null)
-            .map(() => Array(9).fill({ type: 'letter' })),
-          puzzleMode: 'word_count',
-          winCondition: { type: 'word_count', target: 15, description: 'Form 15 words' },
-          difficulty: 'Medium',
-          tags: ['challenge', 'large_grid'],
-        },
-        // 9x9 Hard board
-        {
-          name: 'Legendary Quest - Hard 9x9',
-          supportedModes: ['Solo', 'Multiplayer', 'Both'] as const,
-          gridSize: 9,
-          initialLayout: Array(9)
-            .fill(null)
-            .map(() => Array(9).fill({ type: 'letter' })),
-          puzzleMode: 'score_target',
-          winCondition: { type: 'score', target: 3000, description: 'Reach 3000 points' },
-          difficulty: 'Hard',
-          tags: ['expert', 'challenge', 'large_grid'],
-        },
-        // Special board
-        {
-          name: 'Time Attack - Special',
-          supportedModes: ['Solo'] as const,
-          gridSize: 7,
-          initialLayout: Array(7)
-            .fill(null)
-            .map(() => Array(7).fill({ type: 'letter' })),
-          puzzleMode: 'time_attack',
-          winCondition: { type: 'time', target: 300, description: 'Score points in 5 minutes' },
-          difficulty: 'Special',
-          tags: ['special', 'timed'],
-        },
-      ];
-
-      // Check if boards already exist
+      // Get existing boards by name to prevent duplicates
       const existingBoards = await app.db.query.boards.findMany();
+      const existingNames = new Set(existingBoards.map((b) => b.name));
 
-      let createdCount = 0;
-      for (const board of exampleBoards) {
-        const exists = existingBoards.some((b) => b.name === board.name);
-        if (!exists) {
-          await app.db.insert(schema.boards).values(board as any);
-          createdCount++;
+      let created = 0;
+      let skipped = 0;
+
+      // Seed each board from the library
+      for (const boardData of BOARD_LIBRARY) {
+        if (existingNames.has(boardData.name)) {
+          skipped++;
+          app.logger.debug({ boardName: boardData.name }, 'Board already exists, skipping');
+          continue;
+        }
+
+        try {
+          await app.db.insert(schema.boards).values({
+            name: boardData.name,
+            supportedModes: boardData.supportedModes,
+            gridSize: boardData.gridSize,
+            initialLayout: boardData.initialLayout as any,
+            puzzleMode: boardData.puzzleMode,
+            winCondition: boardData.winCondition as any,
+            difficulty: boardData.difficulty,
+            tags: boardData.tags,
+            isActive: true,
+          });
+
+          created++;
+          app.logger.debug({ boardName: boardData.name }, 'Board created');
+        } catch (error) {
+          app.logger.error(
+            { err: error, boardName: boardData.name },
+            'Failed to create board'
+          );
+          // Continue with next board
         }
       }
 
-      app.logger.info({ count: createdCount, total: exampleBoards.length }, 'Boards seeded');
+      const total = BOARD_LIBRARY.length;
+
+      app.logger.info(
+        { created, skipped, total },
+        'Production board library seed completed'
+      );
 
       return {
-        message: `Seeded ${createdCount} new boards`,
-        count: createdCount,
+        success: true,
+        boardsCreated: created,
+        message: `Seeded ${created} new boards from production library (${skipped} already existed)`,
+        total,
       };
     } catch (error) {
       app.logger.error({ err: error }, 'Failed to seed boards');
