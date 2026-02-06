@@ -313,3 +313,69 @@ export interface DailyChallengeHistory {
   attemptsUsed: number;
   rewards: DailyChallengeRewards;
 }
+
+// ============================================
+// SPECIAL EVENTS TYPES
+// ============================================
+
+export type SpecialEventType =
+  | 'DailyFeaturedBoard'
+  | 'WeeklyChallengeBoard'
+  | 'LimitedTimeEventBoard'
+  | 'AllMirrorTiles'
+  | 'RareLetterAmplified'
+  | 'BoardRotatesEveryTurn'
+  | 'VowelsUnlockTiles';
+
+export interface SpecialEventReward {
+  type: 'XP' | 'Cosmetic' | 'Currency' | 'StreakBonus';
+  value: number | string;
+  description?: string;
+}
+
+export interface SpecialEvent {
+  id: string;
+  type: SpecialEventType;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  boardId: string;
+  rules: string[];
+  rewards: SpecialEventReward[];
+  difficulty: Difficulty;
+  timeRemaining: number; // seconds until event ends
+  isActive: boolean;
+}
+
+export interface SpecialEventProgress {
+  attemptsUsed: number;
+  bestScore: number | null;
+  isCompleted: boolean;
+}
+
+export interface SpecialEventDetail extends SpecialEvent {
+  userProgress: SpecialEventProgress;
+}
+
+export interface CurrentSpecialEvents {
+  dailyFeatured: SpecialEvent | null;
+  weeklyChallenges: SpecialEvent[];
+  limitedTimeEvents: SpecialEvent[];
+}
+
+export interface SpecialEventLeaderboardEntry {
+  userId: string;
+  userName: string;
+  score: number;
+  turnsUsed: number | null;
+  timeTakenSeconds: number | null;
+  efficiency: number | null;
+  rank: number;
+}
+
+export interface SpecialEventLeaderboard {
+  entries: SpecialEventLeaderboardEntry[];
+  userRank: number | null;
+  totalEntries: number;
+}

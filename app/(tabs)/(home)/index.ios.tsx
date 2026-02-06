@@ -12,6 +12,8 @@ import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator
 import { authenticatedGet } from '@/utils/api';
 import { registerForPushNotifications, setupNotificationListeners } from '@/utils/notifications';
 import DailyChallengeCard from '@/components/DailyChallengeCard';
+import SpecialEventsCard from '@/components/SpecialEventsCard';
+import { CurrentSpecialEvents } from '@/types/game';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -20,6 +22,8 @@ export default function HomeScreen() {
   const [activeGames, setActiveGames] = useState<ActiveMultiplayerGame[]>([]);
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
   const [dailyChallengeLoading, setDailyChallengeLoading] = useState(true);
+  const [specialEvents, setSpecialEvents] = useState<CurrentSpecialEvents | null>(null);
+  const [specialEventsLoading, setSpecialEventsLoading] = useState(true);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
@@ -29,6 +33,7 @@ export default function HomeScreen() {
     loadPlayerStats();
     loadActiveGames();
     loadDailyChallenge();
+    loadSpecialEvents();
     
     // Register for push notifications
     registerForPushNotifications();
@@ -93,6 +98,21 @@ export default function HomeScreen() {
     }
   };
 
+  const loadSpecialEvents = async () => {
+    console.log('[Home] Loading special events...');
+    setSpecialEventsLoading(true);
+    try {
+      // TODO: Backend Integration - GET /api/special-events/current
+      const events = await authenticatedGet<CurrentSpecialEvents>('/api/special-events/current');
+      console.log('[Home] Special events loaded:', events);
+      setSpecialEvents(events);
+    } catch (error: any) {
+      console.error('[Home] Failed to load special events:', error);
+    } finally {
+      setSpecialEventsLoading(false);
+    }
+  };
+
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button - navigating to board selection');
     router.push('/board-select?mode=Solo');
@@ -106,6 +126,11 @@ export default function HomeScreen() {
   const handleDailyChallenge = () => {
     console.log('[Home] User tapped Daily Challenge card');
     router.push('/daily-challenge');
+  };
+
+  const handleSpecialEvents = () => {
+    console.log('[Home] User tapped Special Events card');
+    router.push('/special-events');
   };
 
   const userName = user?.name || user?.email?.split('@')[0] || 'Player';
@@ -192,6 +217,16 @@ export default function HomeScreen() {
             challenge={dailyChallenge}
             loading={dailyChallengeLoading}
             onPress={handleDailyChallenge}
+          />
+        </View>
+
+        {/* Special Events Card */}
+        <View style={styles.specialEventsContainer}>
+          <Text style={styles.sectionTitle}>Special Events</Text>
+          <SpecialEventsCard
+            events={specialEvents}
+            loading={specialEventsLoading}
+            onPress={handleSpecialEvents}
           />
         </View>
 
@@ -469,6 +504,11 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   dailyChallengeContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    gap: 12,
+  },
+  specialEventsContainer: {
     paddingHorizontal: 20,
     paddingTop: 24,
     gap: 12,

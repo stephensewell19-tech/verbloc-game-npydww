@@ -307,6 +307,10 @@ export default function GameScreen() {
     const isDailyChallenge = params.dailyChallenge === 'true';
     const challengeId = params.challengeId as string | undefined;
     
+    // Check if this is a special event game
+    const isSpecialEvent = params.mode === 'specialEvent';
+    const eventId = params.eventId as string | undefined;
+    
     // Send game completion to backend (solo mode only)
     if (gameMode === 'solo' && gameId) {
       try {
@@ -334,6 +338,28 @@ export default function GameScreen() {
           } catch (challengeErr) {
             console.error('[DailyChallenge] Failed to complete daily challenge:', challengeErr);
             // Don't block the UI if challenge completion fails
+          }
+        }
+        
+        // If this is a special event, also complete the event
+        if (isSpecialEvent && eventId) {
+          console.log('[SpecialEvent] Completing special event:', eventId);
+          const timeTakenSeconds = Math.floor((Date.now() - (params.startTime ? parseInt(params.startTime as string) : Date.now())) / 1000);
+          
+          try {
+            const response = await authenticatedPost(`/api/special-events/${eventId}/complete`, {
+              gameId,
+              score: finalScore,
+              turnsUsed: turnLimit - turnsLeft,
+              wordsFormed,
+              efficiency,
+              timeTakenSeconds,
+              isWon: status === 'won',
+            });
+            console.log('[SpecialEvent] Event completion response:', response);
+          } catch (eventErr) {
+            console.error('[SpecialEvent] Failed to complete special event:', eventErr);
+            // Don't block the UI if event completion fails
           }
         }
       } catch (err) {
