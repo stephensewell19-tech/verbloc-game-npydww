@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [confirmSignOutModal, setConfirmSignOutModal] = useState(false);
 
   useEffect(() => {
     fetchPlayerStats();
@@ -43,10 +44,29 @@ export default function ProfileScreen() {
       setStats(data);
     } catch (error: any) {
       console.error('[Profile] Failed to fetch player stats:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to load player stats',
-      });
+      
+      // Try to initialize stats if they don't exist
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        console.log('[Profile] Attempting to initialize player stats...');
+        try {
+          await apiPost('/api/player/stats/initialize', {});
+          // Retry fetching stats
+          const retryData = await authenticatedGet<PlayerStats>('/api/player/stats');
+          console.log('[Profile] Player stats initialized and loaded:', retryData);
+          setStats(retryData);
+        } catch (initError: any) {
+          console.error('[Profile] Failed to initialize player stats:', initError);
+          setErrorModal({
+            visible: true,
+            message: initError.message || 'Failed to initialize player stats',
+          });
+        }
+      } else {
+        setErrorModal({
+          visible: true,
+          message: error.message || 'Failed to load player stats',
+        });
+      }
     } finally {
       setStatsLoading(false);
     }
@@ -70,12 +90,12 @@ export default function ProfileScreen() {
     console.log('[Profile] User tapped Seed Production Boards button');
     try {
       setLoading(true);
-      const result = await apiPost<{ message: string; created: number; skipped: number; total: number }>(
-        '/api/boards/seed-production',
+      const result = await apiPost<{ success: boolean; boardsCreated: number; message: string }>(
+        '/api/boards/seed',
         {}
       );
       console.log('[Profile] Production boards seeded:', result);
-      const successMessage = `${result.message}\n\nCreated: ${result.created}\nSkipped: ${result.skipped}\nTotal: ${result.total}`;
+      const successMessage = `${result.message}\n\nBoards Created: ${result.boardsCreated}`;
       setErrorModal({
         visible: true,
         message: successMessage,
@@ -92,7 +112,8 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    console.log('User tapped Sign Out button');
+    console.log('User confirmed sign out');
+    setConfirmSignOutModal(false);
     try {
       setLoading(true);
       await signOut();
@@ -227,7 +248,7 @@ export default function ProfileScreen() {
               <View style={styles.statCard}>
                 <IconSymbol
                   ios_icon_name="gamecontroller.fill"
-                  android_material_icon_name="videogame-asset"
+                  android_material_icon_name="sports-esports"
                   size={32}
                   color={colors.primary}
                 />
@@ -380,7 +401,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.signOutButton}
-          onPress={handleSignOut}
+          onPress={() => setConfirmSignOutModal(true)}
           disabled={loading}
         >
           {loading ? (
@@ -403,11 +424,34 @@ export default function ProfileScreen() {
 
       <Modal
         visible={errorModal.visible}
-        title={errorModal.message.includes('Success') ? 'Success' : 'Error'}
+        title={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'Success' : 'Error'}
         message={errorModal.message}
         onClose={() => setErrorModal({ visible: false, message: '' })}
-        type={errorModal.message.includes('Success') ? 'success' : 'error'}
+        type={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'success' : 'error'}
       />
+
+      <Modal
+        visible={confirmSignOutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        onClose={() => setConfirmSignOutModal(false)}
+        type="warning"
+      >
+        <View style={styles.modalButtons}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.modalButtonCancel]}
+            onPress={() => setConfirmSignOutModal(false)}
+          >
+            <Text style={styles.modalButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.modalButtonConfirm]}
+            onPress={handleSignOut}
+          >
+            <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -423,7 +467,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingVertical: 32,
-    paddingTop: Platform.OS === 'android' ? 48 : 32,
   },
   avatarContainer: {
     marginBottom: 16,
@@ -603,5 +646,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     marginTop: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.backgroundAlt,
+  },
+  modalButtonConfirm: {
+    backgroundColor: colors.error,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalButtonTextConfirm: {
+    color: '#FFFFFF',
   },
 });

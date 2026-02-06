@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -42,10 +43,29 @@ export default function ProfileScreen() {
       setStats(data);
     } catch (error: any) {
       console.error('[Profile] Failed to fetch player stats:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to load player stats',
-      });
+      
+      // Try to initialize stats if they don't exist
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        console.log('[Profile] Attempting to initialize player stats...');
+        try {
+          await apiPost('/api/player/stats/initialize', {});
+          // Retry fetching stats
+          const retryData = await authenticatedGet<PlayerStats>('/api/player/stats');
+          console.log('[Profile] Player stats initialized and loaded:', retryData);
+          setStats(retryData);
+        } catch (initError: any) {
+          console.error('[Profile] Failed to initialize player stats:', initError);
+          setErrorModal({
+            visible: true,
+            message: initError.message || 'Failed to initialize player stats',
+          });
+        }
+      } else {
+        setErrorModal({
+          visible: true,
+          message: error.message || 'Failed to load player stats',
+        });
+      }
     } finally {
       setStatsLoading(false);
     }

@@ -53,10 +53,13 @@ export default function BoardSelectScreen() {
       console.log('[BoardSelect] Fetching boards with params:', params.toString());
       
       // Fetch boards from backend
-      const response = await authenticatedGet<BoardListItem[]>(`/api/boards?${params.toString()}`);
-      console.log('[BoardSelect] Boards loaded:', response.length, 'boards');
+      const response = await authenticatedGet<any>(`/api/boards?${params.toString()}`);
       
-      setBoards(response);
+      // Handle both array response and object with boards property
+      const boardsData = Array.isArray(response) ? response : (response.boards || []);
+      console.log('[BoardSelect] Boards loaded:', boardsData.length, 'boards');
+      
+      setBoards(boardsData);
     } catch (error: any) {
       console.error('[BoardSelect] Failed to load boards:', error);
       

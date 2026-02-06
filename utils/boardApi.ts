@@ -23,9 +23,17 @@ export async function fetchBoards(params?: {
   const endpoint = `/api/boards${queryString ? `?${queryString}` : ''}`;
   
   try {
-    const response = await apiGet<{ boards: BoardListItem[]; total: number }>(endpoint);
-    console.log('[BoardAPI] Boards fetched successfully:', response.boards?.length || 0);
-    return response;
+    const response = await apiGet<any>(endpoint);
+    
+    // Handle both array response and object with boards property
+    // Backend was updated to return array directly, but we maintain backward compatibility
+    if (Array.isArray(response)) {
+      console.log('[BoardAPI] Boards fetched successfully (array format):', response.length);
+      return { boards: response, total: response.length };
+    } else {
+      console.log('[BoardAPI] Boards fetched successfully (object format):', response.boards?.length || 0);
+      return { boards: response.boards || [], total: response.total || 0 };
+    }
   } catch (error) {
     console.error('[BoardAPI] Failed to fetch boards:', error);
     throw error;

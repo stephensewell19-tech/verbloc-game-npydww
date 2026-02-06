@@ -40,9 +40,14 @@ export default function MultiplayerMatchmakingScreen() {
 
   const loadBoards = async () => {
     try {
-      const response = await authenticatedGet<{ boards: BoardListItem[] }>('/api/boards');
-      const multiplayerBoards = response.boards.filter(
-        (b) => b.supportedModes.includes('Multiplayer') || b.supportedModes.includes('Both')
+      const response = await authenticatedGet<any>('/api/boards?mode=Multiplayer&isActive=true');
+      
+      // Handle both array response and object with boards property
+      const boardsData = Array.isArray(response) ? response : (response.boards || []);
+      console.log('[Matchmaking] Boards loaded:', boardsData.length, 'boards');
+      
+      const multiplayerBoards = boardsData.filter(
+        (b: BoardListItem) => b.supportedModes.includes('Multiplayer') || b.supportedModes.includes('Both')
       );
       setBoards(multiplayerBoards);
       if (multiplayerBoards.length > 0) {

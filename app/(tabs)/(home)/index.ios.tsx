@@ -67,6 +67,21 @@ export default function HomeScreen() {
       setPlayerStats(stats);
     } catch (error: any) {
       console.error('[Home] Failed to load player stats:', error);
+      
+      // Try to initialize stats if they don't exist
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        console.log('[Home] Attempting to initialize player stats...');
+        try {
+          const { apiPost } = await import('@/utils/api');
+          await apiPost('/api/player/stats/initialize', {});
+          // Retry fetching stats
+          const retryStats = await authenticatedGet<PlayerStats>('/api/player/stats');
+          console.log('[Home] Player stats initialized and loaded:', retryStats);
+          setPlayerStats(retryStats);
+        } catch (initError: any) {
+          console.error('[Home] Failed to initialize player stats:', initError);
+        }
+      }
     } finally {
       setStatsLoading(false);
     }
