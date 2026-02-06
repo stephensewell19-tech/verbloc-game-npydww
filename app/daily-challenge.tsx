@@ -46,7 +46,6 @@ export default function DailyChallengeScreen() {
     console.log('[DailyChallenge] Loading daily challenge...');
     setLoading(true);
     try {
-      // TODO: Backend Integration - GET /api/daily-challenge/current
       const data = await authenticatedGet<DailyChallenge>('/api/daily-challenge/current');
       console.log('[DailyChallenge] Challenge loaded:', data);
       setChallenge(data);
@@ -69,7 +68,6 @@ export default function DailyChallengeScreen() {
   const loadLeaderboard = async (challengeId: string) => {
     console.log('[DailyChallenge] Loading leaderboard...');
     try {
-      // TODO: Backend Integration - GET /api/daily-challenge/:challengeId/leaderboard
       const data = await authenticatedGet<DailyChallengeLeaderboard>(
         `/api/daily-challenge/${challengeId}/leaderboard?sortBy=score&limit=10`
       );
@@ -83,7 +81,6 @@ export default function DailyChallengeScreen() {
   const loadStreak = async () => {
     console.log('[DailyChallenge] Loading streak...');
     try {
-      // TODO: Backend Integration - GET /api/daily-challenge/streak
       const data = await authenticatedGet<DailyChallengeStreak>('/api/daily-challenge/streak');
       console.log('[DailyChallenge] Streak loaded:', data);
       setStreak(data);
@@ -117,7 +114,6 @@ export default function DailyChallengeScreen() {
 
     setStartingGame(true);
     try {
-      // TODO: Backend Integration - POST /api/daily-challenge/:challengeId/start
       const response = await authenticatedPost<{ gameId: string; attemptsRemaining: number }>(
         `/api/daily-challenge/${challenge.id}/start`,
         { gameMode: selectedMode }

@@ -143,6 +143,43 @@ export interface PlayerStats {
   level: number;
 }
 
+// ============================================
+// PROGRESSION SYSTEM TYPES
+// ============================================
+
+export interface PlayerProgression {
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  unlockedCosmetics: string[];
+  unlockedTitles: string[];
+  unlockedBadges: string[];
+  achievements: PlayerAchievement[];
+}
+
+export interface PlayerAchievement {
+  id: string;
+  name: string;
+  description: string;
+  unlockedAt: string;
+  rewardXp: number;
+  rewardCosmeticId?: string;
+}
+
+export interface XpAwardResult {
+  newXp: number;
+  newLevel: number;
+  leveledUp: boolean;
+  newUnlocks: UnlockItem[];
+  xpToNextLevel: number;
+}
+
+export interface UnlockItem {
+  type: 'cosmetic' | 'title' | 'badge';
+  id: string;
+  name: string;
+}
+
 export enum GameOutcome {
   Playing = 'playing',
   Win = 'win',

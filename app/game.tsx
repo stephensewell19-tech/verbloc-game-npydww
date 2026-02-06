@@ -56,6 +56,9 @@ export default function GameScreen() {
   const [showScorePop, setShowScorePop] = useState(false);
   const [comboCount, setComboCount] = useState(0);
   const [showCombo, setShowCombo] = useState(false);
+  const [xpEarned, setXpEarned] = useState<number | undefined>(undefined);
+  const [leveledUp, setLeveledUp] = useState(false);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
   
   // Game configuration from params
   const gameId = params.gameId as string | undefined;
@@ -335,6 +338,58 @@ export default function GameScreen() {
     
     const isSpecialEvent = params.mode === 'specialEvent';
     const eventId = params.eventId as string | undefined;
+    
+    // Calculate XP earned
+    const { calculateXpEarned } = await import('@/utils/gameLogic');
+    
+    let source: 'solo' | 'multiplayer' | 'dailyChallenge' | 'specialEvent' = 'solo';
+    if (isDailyChallenge) {
+      source = 'dailyChallenge';
+    } else if (isSpecialEvent) {
+      source = 'specialEvent';
+    } else if (gameMode === 'multiplayer') {
+      source = 'multiplayer';
+    }
+    
+    const xpEarned = calculateXpEarned(
+      source,
+      finalScore,
+      wordsFormed,
+      efficiency,
+      status === 'won',
+      isDailyChallenge,
+      isSpecialEvent
+    );
+    
+    console.log('[Progression] XP earned:', xpEarned, 'from source:', source);
+    
+    // Award XP to player
+    try {
+      const xpResult = await authenticatedPost('/api/player/progress/award-xp', {
+        xp: xpEarned,
+        source,
+        gameId,
+      });
+      
+      console.log('[Progression] XP awarded:', xpResult);
+      
+      // Store XP data for modal display
+      setXpEarned(xpEarned);
+      setLeveledUp(xpResult.leveledUp || false);
+      setNewLevel(xpResult.newLevel);
+      
+      if (xpResult.leveledUp) {
+        console.log('[Progression] LEVEL UP! New level:', xpResult.newLevel);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
+      if (xpResult.newUnlocks && xpResult.newUnlocks.length > 0) {
+        console.log('[Progression] New unlocks:', xpResult.newUnlocks);
+        // TODO: Show unlock notifications in a separate modal
+      }
+    } catch (xpErr) {
+      console.error('[Progression] Failed to award XP:', xpErr);
+    }
     
     if (gameMode === 'solo' && gameId) {
       try {
@@ -718,6 +773,9 @@ export default function GameScreen() {
         efficiency={efficiency}
         turnsUsed={gameMode === 'solo' ? (turnLimit - turnsLeft) : undefined}
         turnLimit={gameMode === 'solo' ? turnLimit : undefined}
+        xpEarned={xpEarned}
+        leveledUp={leveledUp}
+        newLevel={newLevel}
         onPlayAgain={handleNewGame}
         onBackToHome={handleBackToHome}
       />

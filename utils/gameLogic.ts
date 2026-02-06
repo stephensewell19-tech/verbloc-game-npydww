@@ -566,3 +566,85 @@ export function createSimpleBoardLayout(gridSize: number): BoardTile[][] {
   
   return layout;
 }
+
+// ============================================
+// PROGRESSION SYSTEM UTILITIES
+// ============================================
+
+export type GameSource = 'solo' | 'multiplayer' | 'dailyChallenge' | 'specialEvent';
+
+/**
+ * Calculates XP earned from a game based on performance
+ */
+export function calculateXpEarned(
+  source: GameSource,
+  score: number,
+  wordsFormed: number,
+  efficiency: number,
+  isWon: boolean,
+  isDailyChallenge: boolean = false,
+  isSpecialEvent: boolean = false
+): number {
+  console.log('Calculating XP:', { source, score, wordsFormed, efficiency, isWon, isDailyChallenge, isSpecialEvent });
+  
+  let xp = 0;
+  
+  // Base XP from score (1 XP per 10 points)
+  xp += Math.floor(score / 10);
+  
+  // Bonus for words formed (5 XP per word)
+  xp += wordsFormed * 5;
+  
+  // Efficiency bonus (high efficiency = more XP)
+  if (efficiency > 50) {
+    xp += Math.floor(score * 0.15); // 15% bonus for high efficiency
+  } else if (efficiency > 30) {
+    xp += Math.floor(score * 0.1); // 10% bonus for medium efficiency
+  }
+  
+  // Win bonus
+  if (isWon) {
+    xp += 50; // Flat win bonus
+  }
+  
+  // Game mode multipliers
+  if (source === 'multiplayer') {
+    xp = Math.floor(xp * 1.2); // 20% bonus for multiplayer
+  } else if (source === 'solo') {
+    xp = Math.floor(xp * 1.0); // No multiplier for solo (but still rewarding!)
+  }
+  
+  // Daily Challenge bonus
+  if (isDailyChallenge) {
+    xp = Math.floor(xp * 1.5); // 50% bonus for daily challenges
+  }
+  
+  // Special Event bonus
+  if (isSpecialEvent) {
+    xp = Math.floor(xp * 1.3); // 30% bonus for special events
+  }
+  
+  // Ensure minimum XP (always reward participation)
+  xp = Math.max(10, xp);
+  
+  console.log('XP calculated:', xp);
+  return xp;
+}
+
+/**
+ * Calculates level from XP
+ * Formula: level = floor(sqrt(xp / 100))
+ */
+export function calculateLevel(xp: number): number {
+  return Math.floor(Math.sqrt(xp / 100));
+}
+
+/**
+ * Calculates XP required for next level
+ */
+export function calculateXpToNextLevel(currentXp: number): number {
+  const currentLevel = calculateLevel(currentXp);
+  const nextLevel = currentLevel + 1;
+  const xpForNextLevel = nextLevel * nextLevel * 100;
+  return xpForNextLevel - currentXp;
+}

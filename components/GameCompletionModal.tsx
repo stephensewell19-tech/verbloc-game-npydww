@@ -22,6 +22,9 @@ interface GameCompletionModalProps {
   efficiency?: number;
   turnsUsed?: number;
   turnLimit?: number;
+  xpEarned?: number;
+  leveledUp?: boolean;
+  newLevel?: number;
   onPlayAgain: () => void;
   onBackToHome: () => void;
 }
@@ -37,6 +40,9 @@ export default function GameCompletionModal({
   efficiency,
   turnsUsed,
   turnLimit,
+  xpEarned,
+  leveledUp,
+  newLevel,
   onPlayAgain,
   onBackToHome,
 }: GameCompletionModalProps) {
@@ -83,6 +89,8 @@ export default function GameCompletionModal({
   const efficiencyText = efficiency ? efficiency.toFixed(1) : '0.0';
   const turnsUsedText = turnsUsed !== undefined ? String(turnsUsed) : '0';
   const turnLimitText = turnLimit !== undefined ? String(turnLimit) : '0';
+  const xpEarnedText = xpEarned !== undefined ? String(xpEarned) : '0';
+  const newLevelText = newLevel !== undefined ? String(newLevel) : '0';
 
   // Celebrate clever plays
   const isHighEfficiency = efficiency && efficiency >= 50;
@@ -159,6 +167,24 @@ export default function GameCompletionModal({
                     </Text>
                   </View>
                 )}
+              </View>
+            )}
+
+            {/* XP Earned Display */}
+            {xpEarned !== undefined && xpEarned > 0 && (
+              <View style={styles.xpBox}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={24}
+                  color={colors.highlight}
+                />
+                <View style={styles.xpContent}>
+                  <Text style={styles.xpEarnedText}>+{xpEarnedText} XP</Text>
+                  {leveledUp && (
+                    <Text style={styles.levelUpText}>🎉 LEVEL UP! Now Level {newLevelText}!</Text>
+                  )}
+                </View>
               </View>
             )}
 
@@ -328,6 +354,31 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  xpBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    alignItems: 'center',
+  },
+  xpContent: {
+    flex: 1,
+  },
+  xpEarnedText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  levelUpText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.highlight,
+    marginTop: 4,
   },
   achievementBox: {
     flexDirection: 'row',

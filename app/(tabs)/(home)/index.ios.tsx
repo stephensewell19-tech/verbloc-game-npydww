@@ -138,9 +138,9 @@ export default function HomeScreen() {
   const currentXP = playerStats?.experiencePoints || 0;
   const currentStreak = playerStats?.currentStreak || 0;
   
-  // Calculate XP progress (1000 XP per level)
-  const xpForCurrentLevel = (currentLevel - 1) * 1000;
-  const xpForNextLevel = currentLevel * 1000;
+  // Calculate XP progress using the same formula as backend: level = floor(sqrt(xp / 100))
+  const xpForCurrentLevel = currentLevel * currentLevel * 100;
+  const xpForNextLevel = (currentLevel + 1) * (currentLevel + 1) * 100;
   const xpProgress = currentXP - xpForCurrentLevel;
   const xpNeeded = xpForNextLevel - xpForCurrentLevel;
   const progressPercentage = Math.min((xpProgress / xpNeeded) * 100, 100);

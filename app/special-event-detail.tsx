@@ -77,7 +77,6 @@ export default function SpecialEventDetailScreen() {
     console.log('[SpecialEventDetail] Loading event detail...');
     setLoading(true);
     try {
-      // TODO: Backend Integration - GET /api/special-events/:eventId
       const eventData = await authenticatedGet<SpecialEventDetail>(
         `/api/special-events/${eventId}`
       );
@@ -98,7 +97,6 @@ export default function SpecialEventDetailScreen() {
     console.log('[SpecialEventDetail] Loading leaderboard...');
     setLeaderboardLoading(true);
     try {
-      // TODO: Backend Integration - GET /api/special-events/:eventId/leaderboard
       const leaderboardData = await authenticatedGet<SpecialEventLeaderboard>(
         `/api/special-events/${eventId}/leaderboard?limit=10`
       );
