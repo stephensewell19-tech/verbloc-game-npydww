@@ -14,6 +14,7 @@ import { registerMatchmakingRoutes } from './routes/matchmaking.js';
 import { registerTurnManagementRoutes } from './routes/turn-management.js';
 import { registerSocialInteractionRoutes } from './routes/social-interactions.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerSpecialEventsRoutes } from './routes/special-events.js';
 
 // Combine schemas for full database type support
 const schema = { ...appSchema, ...authSchema };
@@ -41,6 +42,7 @@ registerMatchmakingRoutes(app);
 registerTurnManagementRoutes(app);
 registerSocialInteractionRoutes(app);
 registerNotificationRoutes(app);
+registerSpecialEventsRoutes(app);
 
 await app.run();
 app.logger.info('VERBLOC backend running');

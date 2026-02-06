@@ -291,3 +291,82 @@ export const pushNotificationTokensRelations = relations(pushNotificationTokens,
     references: [user.id],
   }),
 }));
+
+// Special events table
+export const specialEvents = pgTable('special_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: text('type', {
+    enum: [
+      'DailyFeaturedBoard',
+      'WeeklyChallengeBoard',
+      'LimitedTimeEventBoard',
+      'AllMirrorTiles',
+      'RareLetterAmplified',
+      'BoardRotatesEveryTurn',
+      'VowelsUnlockTiles',
+    ],
+  }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  startDate: timestamp('start_date', { withTimezone: true }).notNull(),
+  endDate: timestamp('end_date', { withTimezone: true }).notNull(),
+  boardId: uuid('board_id').notNull().references(() => boards.id, { onDelete: 'restrict' }),
+  rules: jsonb('rules').$type<string[]>().default([]).notNull(),
+  rewards: jsonb('rewards').$type<Array<{
+    type: 'XP' | 'Cosmetic' | 'Currency' | 'StreakBonus';
+    value: number | string;
+    description?: string;
+  }>>().default([]).notNull(),
+  difficulty: text('difficulty', { enum: ['Easy', 'Medium', 'Hard', 'Special'] }).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('special_events_type_idx').on(table.type),
+  index('special_events_is_active_idx').on(table.isActive),
+  index('special_events_start_date_idx').on(table.startDate),
+  index('special_events_end_date_idx').on(table.endDate),
+]);
+
+// Special event completions table
+export const specialEventCompletions = pgTable('special_event_completions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().references(() => specialEvents.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  gameId: uuid('game_id').references(() => games.id, { onDelete: 'set null' }),
+  score: integer('score').notNull(),
+  turnsUsed: integer('turns_used'),
+  wordsFormed: integer('words_formed').notNull(),
+  efficiency: numeric('efficiency'),
+  timeTakenSeconds: integer('time_taken_seconds'),
+  isCompleted: boolean('is_completed').notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('special_event_completions_event_id_idx').on(table.eventId),
+  index('special_event_completions_user_id_idx').on(table.userId),
+  uniqueIndex('special_event_completions_event_user_idx').on(table.eventId, table.userId),
+]);
+
+// Relations for special events
+export const specialEventsRelations = relations(specialEvents, ({ many, one }) => ({
+  board: one(boards, {
+    fields: [specialEvents.boardId],
+    references: [boards.id],
+  }),
+  completions: many(specialEventCompletions),
+}));
+
+export const specialEventCompletionsRelations = relations(specialEventCompletions, ({ one }) => ({
+  event: one(specialEvents, {
+    fields: [specialEventCompletions.eventId],
+    references: [specialEvents.id],
+  }),
+  user: one(user, {
+    fields: [specialEventCompletions.userId],
+    references: [user.id],
+  }),
+  game: one(games, {
+    fields: [specialEventCompletions.gameId],
+    references: [games.id],
+  }),
+}));
