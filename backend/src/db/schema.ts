@@ -370,3 +370,46 @@ export const specialEventCompletionsRelations = relations(specialEventCompletion
     references: [games.id],
   }),
 }));
+
+// Player unlocks table (cosmetics, titles, badges)
+export const playerUnlocks = pgTable('player_unlocks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  unlockType: text('unlock_type', { enum: ['cosmetic', 'title', 'badge'] }).notNull(),
+  unlockId: text('unlock_id').notNull(),
+  unlockedAt: timestamp('unlocked_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('player_unlocks_user_id_idx').on(table.userId),
+  uniqueIndex('player_unlocks_user_unlock_idx').on(table.userId, table.unlockId),
+]);
+
+// Player achievements table
+export const playerAchievements = pgTable('player_achievements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  achievementId: text('achievement_id').notNull(),
+  achievementName: text('achievement_name').notNull(),
+  achievementDescription: text('achievement_description').notNull(),
+  unlockedAt: timestamp('unlocked_at', { withTimezone: true }).defaultNow().notNull(),
+  rewardXp: integer('reward_xp').notNull(),
+  rewardCosmeticId: text('reward_cosmetic_id'),
+}, (table) => [
+  index('player_achievements_user_id_idx').on(table.userId),
+  uniqueIndex('player_achievements_user_achievement_idx').on(table.userId, table.achievementId),
+]);
+
+// Relations for player unlocks
+export const playerUnlocksRelations = relations(playerUnlocks, ({ one }) => ({
+  user: one(user, {
+    fields: [playerUnlocks.userId],
+    references: [user.id],
+  }),
+}));
+
+// Relations for player achievements
+export const playerAchievementsRelations = relations(playerAchievements, ({ one }) => ({
+  user: one(user, {
+    fields: [playerAchievements.userId],
+    references: [user.id],
+  }),
+}));
