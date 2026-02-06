@@ -1,3 +1,4 @@
+
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
@@ -16,6 +17,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { SuperwallProvider } from "@/contexts/SuperwallContext";
 import { Modal } from "@/components/button";
 // Note: Error logging is auto-initialized via index.ts import
 
@@ -68,6 +70,9 @@ function RootNavigator() {
       
       {/* Game screen (outside tabs to avoid FloatingTabBar) */}
       <Stack.Screen name="game" options={{ headerShown: false }} />
+      
+      {/* Subscription screen */}
+      <Stack.Screen name="subscription" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -130,12 +135,14 @@ export default function RootLayout() {
           value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
         >
           <AuthProvider>
-            <WidgetProvider>
-              <GestureHandlerRootView>
-                <RootNavigator />
-                <SystemBars style={"auto"} />
-              </GestureHandlerRootView>
-            </WidgetProvider>
+            <SuperwallProvider>
+              <WidgetProvider>
+                <GestureHandlerRootView>
+                  <RootNavigator />
+                  <SystemBars style={"auto"} />
+                </GestureHandlerRootView>
+              </WidgetProvider>
+            </SuperwallProvider>
           </AuthProvider>
         </ThemeProvider>
         

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SuperwallContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats, PlayerProgression } from '@/types/game';
@@ -22,12 +23,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { isPremium, subscriptionStatus } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [confirmSignOutModal, setConfirmSignOutModal] = useState(false);
 
   useEffect(() => {
     fetchPlayerStats();
@@ -89,7 +92,7 @@ export default function ProfileScreen() {
     console.log('[Profile] User tapped Seed Production Boards button');
     try {
       setLoading(true);
-      const result = await apiPost<{ message: string; created: number; skipped: number; total: number }>(
+      const result = await apiPost<{ success: boolean; created: number; skipped: number; total: number; message: string }>(
         '/api/boards/seed-production',
         {}
       );
@@ -111,7 +114,8 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    console.log('User tapped Sign Out button');
+    console.log('User confirmed sign out');
+    setConfirmSignOutModal(false);
     try {
       setLoading(true);
       await signOut();
@@ -124,6 +128,8 @@ export default function ProfileScreen() {
   };
 
   const userName = user?.name || user?.email || 'Player';
+  const subscriptionStatusText = isPremium ? 'Premium' : 'Free';
+  const subscriptionStatusColor = isPremium ? colors.success : colors.textSecondary;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -139,7 +145,54 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{userName}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+          
+          {/* Subscription Status Badge */}
+          <View style={[styles.subscriptionBadge, { backgroundColor: subscriptionStatusColor }]}>
+            <IconSymbol
+              ios_icon_name={isPremium ? "crown.fill" : "person.fill"}
+              android_material_icon_name={isPremium ? "workspace-premium" : "person"}
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.subscriptionBadgeText}>{subscriptionStatusText}</Text>
+          </View>
         </View>
+
+        {/* Premium Upsell Card (for free users) */}
+        {!isPremium && (
+          <TouchableOpacity
+            style={styles.premiumUpsellCard}
+            onPress={() => router.push('/subscription')}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.premiumUpsellGradient}
+            >
+              <View style={styles.premiumUpsellContent}>
+                <IconSymbol
+                  ios_icon_name="crown.fill"
+                  android_material_icon_name="workspace-premium"
+                  size={32}
+                  color="#FFFFFF"
+                />
+                <View style={styles.premiumUpsellText}>
+                  <Text style={styles.premiumUpsellTitle}>Upgrade to Premium</Text>
+                  <Text style={styles.premiumUpsellSubtitle}>
+                    Unlimited matches, private lobbies, and more
+                  </Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Progression Section */}
         <View style={styles.progressionContainer}>
@@ -246,7 +299,7 @@ export default function ProfileScreen() {
               <View style={styles.statCard}>
                 <IconSymbol
                   ios_icon_name="gamecontroller.fill"
-                  android_material_icon_name="videogame-asset"
+                  android_material_icon_name="sports-esports"
                   size={32}
                   color={colors.primary}
                 />
@@ -313,6 +366,28 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.actionsContainer}>
+          {/* Subscription Management */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/subscription')}
+          >
+            <IconSymbol
+              ios_icon_name="crown.fill"
+              android_material_icon_name="workspace-premium"
+              size={24}
+              color={isPremium ? colors.success : colors.text}
+            />
+            <Text style={styles.actionButtonText}>
+              {isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}
+            </Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => console.log('View leaderboard')}
@@ -399,7 +474,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.signOutButton}
-          onPress={handleSignOut}
+          onPress={() => setConfirmSignOutModal(true)}
           disabled={loading}
         >
           {loading ? (
@@ -422,11 +497,34 @@ export default function ProfileScreen() {
 
       <Modal
         visible={errorModal.visible}
-        title={errorModal.message.includes('Success') ? 'Success' : 'Error'}
+        title={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'Success' : 'Error'}
         message={errorModal.message}
         onClose={() => setErrorModal({ visible: false, message: '' })}
-        type={errorModal.message.includes('Success') ? 'success' : 'error'}
+        type={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'success' : 'error'}
       />
+
+      <Modal
+        visible={confirmSignOutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        onClose={() => setConfirmSignOutModal(false)}
+        type="warning"
+      >
+        <View style={styles.modalButtons}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.modalButtonCancel]}
+            onPress={() => setConfirmSignOutModal(false)}
+          >
+            <Text style={styles.modalButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.modalButtonConfirm]}
+            onPress={handleSignOut}
+          >
+            <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -455,6 +553,52 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  subscriptionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  subscriptionBadgeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  premiumUpsellCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  premiumUpsellGradient: {
+    padding: 20,
+  },
+  premiumUpsellContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  premiumUpsellText: {
+    flex: 1,
+  },
+  premiumUpsellTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  premiumUpsellSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   progressionContainer: {
     paddingHorizontal: 20,
@@ -621,5 +765,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     marginTop: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.backgroundAlt,
+  },
+  modalButtonConfirm: {
+    backgroundColor: colors.error,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalButtonTextConfirm: {
+    color: '#FFFFFF',
   },
 });

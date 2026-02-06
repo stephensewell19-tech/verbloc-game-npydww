@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SuperwallContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats, PlayerProgression } from '@/types/game';
@@ -22,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { isPremium, subscriptionStatus } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -126,6 +128,8 @@ export default function ProfileScreen() {
   };
 
   const userName = user?.name || user?.email || 'Player';
+  const subscriptionStatusText = isPremium ? 'Premium' : 'Free';
+  const subscriptionStatusColor = isPremium ? colors.success : colors.textSecondary;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -141,7 +145,54 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{userName}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+          
+          {/* Subscription Status Badge */}
+          <View style={[styles.subscriptionBadge, { backgroundColor: subscriptionStatusColor }]}>
+            <IconSymbol
+              ios_icon_name={isPremium ? "crown.fill" : "person.fill"}
+              android_material_icon_name={isPremium ? "workspace-premium" : "person"}
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.subscriptionBadgeText}>{subscriptionStatusText}</Text>
+          </View>
         </View>
+
+        {/* Premium Upsell Card (for free users) */}
+        {!isPremium && (
+          <TouchableOpacity
+            style={styles.premiumUpsellCard}
+            onPress={() => router.push('/subscription')}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.premiumUpsellGradient}
+            >
+              <View style={styles.premiumUpsellContent}>
+                <IconSymbol
+                  ios_icon_name="crown.fill"
+                  android_material_icon_name="workspace-premium"
+                  size={32}
+                  color="#FFFFFF"
+                />
+                <View style={styles.premiumUpsellText}>
+                  <Text style={styles.premiumUpsellTitle}>Upgrade to Premium</Text>
+                  <Text style={styles.premiumUpsellSubtitle}>
+                    Unlimited matches, private lobbies, and more
+                  </Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Progression Section */}
         <View style={styles.progressionContainer}>
@@ -315,6 +366,28 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.actionsContainer}>
+          {/* Subscription Management */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/subscription')}
+          >
+            <IconSymbol
+              ios_icon_name="crown.fill"
+              android_material_icon_name="workspace-premium"
+              size={24}
+              color={isPremium ? colors.success : colors.text}
+            />
+            <Text style={styles.actionButtonText}>
+              {isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}
+            </Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => console.log('View leaderboard')}
@@ -480,6 +553,52 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  subscriptionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  subscriptionBadgeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  premiumUpsellCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  premiumUpsellGradient: {
+    padding: 20,
+  },
+  premiumUpsellContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  premiumUpsellText: {
+    flex: 1,
+  },
+  premiumUpsellTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  premiumUpsellSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   progressionContainer: {
     paddingHorizontal: 20,
