@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { Modal } from '@/components/button';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getUserErrorMessage } from '@/utils/errorHandling';
 import {
   SpecialEventDetail,
   SpecialEventLeaderboard,
@@ -32,13 +33,49 @@ export default function SpecialEventDetailScreen() {
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
   const [timeRemaining, setTimeRemaining] = useState<string>('');
 
+  const loadEventDetail = useCallback(async () => {
+    console.log('[SpecialEventDetail] Loading event detail...');
+    setLoading(true);
+    try {
+      const eventData = await authenticatedGet<SpecialEventDetail>(
+        `/api/special-events/${eventId}`
+      );
+      console.log('[SpecialEventDetail] Event loaded:', eventData);
+      setEvent(eventData);
+    } catch (error: any) {
+      console.error('[SpecialEventDetail] Failed to load event:', error);
+      setErrorModal({
+        visible: true,
+        message: getUserErrorMessage(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  const loadLeaderboard = useCallback(async () => {
+    console.log('[SpecialEventDetail] Loading leaderboard...');
+    setLeaderboardLoading(true);
+    try {
+      const leaderboardData = await authenticatedGet<SpecialEventLeaderboard>(
+        `/api/special-events/${eventId}/leaderboard?limit=10`
+      );
+      console.log('[SpecialEventDetail] Leaderboard loaded:', leaderboardData);
+      setLeaderboard(leaderboardData);
+    } catch (error: any) {
+      console.error('[SpecialEventDetail] Failed to load leaderboard:', error);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, [eventId]);
+
   useEffect(() => {
     console.log('[SpecialEventDetail] Screen mounted with eventId:', eventId);
     if (eventId) {
       loadEventDetail();
       loadLeaderboard();
     }
-  }, [eventId]);
+  }, [eventId, loadEventDetail, loadLeaderboard]);
 
   useEffect(() => {
     if (!event) {
@@ -73,42 +110,6 @@ export default function SpecialEventDetailScreen() {
     return () => clearInterval(interval);
   }, [event]);
 
-  const loadEventDetail = async () => {
-    console.log('[SpecialEventDetail] Loading event detail...');
-    setLoading(true);
-    try {
-      const eventData = await authenticatedGet<SpecialEventDetail>(
-        `/api/special-events/${eventId}`
-      );
-      console.log('[SpecialEventDetail] Event loaded:', eventData);
-      setEvent(eventData);
-    } catch (error: any) {
-      console.error('[SpecialEventDetail] Failed to load event:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to load event details',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadLeaderboard = async () => {
-    console.log('[SpecialEventDetail] Loading leaderboard...');
-    setLeaderboardLoading(true);
-    try {
-      const leaderboardData = await authenticatedGet<SpecialEventLeaderboard>(
-        `/api/special-events/${eventId}/leaderboard?limit=10`
-      );
-      console.log('[SpecialEventDetail] Leaderboard loaded:', leaderboardData);
-      setLeaderboard(leaderboardData);
-    } catch (error: any) {
-      console.error('[SpecialEventDetail] Failed to load leaderboard:', error);
-    } finally {
-      setLeaderboardLoading(false);
-    }
-  };
-
   const handleStartEvent = async () => {
     console.log('[SpecialEventDetail] User tapped Start Event button');
     setStarting(true);
@@ -128,7 +129,7 @@ export default function SpecialEventDetailScreen() {
       console.error('[SpecialEventDetail] Failed to start event:', error);
       setErrorModal({
         visible: true,
-        message: error.message || 'Failed to start event',
+        message: getUserErrorMessage(error),
       });
     } finally {
       setStarting(false);
