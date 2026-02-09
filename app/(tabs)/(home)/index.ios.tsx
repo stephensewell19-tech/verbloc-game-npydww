@@ -14,6 +14,7 @@ import { registerForPushNotifications, setupNotificationListeners } from '@/util
 import DailyChallengeCard from '@/components/DailyChallengeCard';
 import SpecialEventsCard from '@/components/SpecialEventsCard';
 import { CurrentSpecialEvents } from '@/types/game';
+import { getLastPlayedMode } from '@/utils/onboarding';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [lastMode, setLastMode] = useState<'solo' | 'multiplayer' | null>(null);
 
   useEffect(() => {
     console.log('[Home] Home screen mounted (iOS)');
@@ -34,6 +36,7 @@ export default function HomeScreen() {
     loadActiveGames();
     loadDailyChallenge();
     loadSpecialEvents();
+    loadLastMode();
     
     // Register for push notifications
     registerForPushNotifications();
@@ -58,6 +61,12 @@ export default function HomeScreen() {
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadLastMode = async () => {
+    const mode = await getLastPlayedMode();
+    console.log('[Home] Last played mode:', mode);
+    setLastMode(mode);
+  };
 
   const loadPlayerStats = async () => {
     console.log('[Home] Loading player stats...');
@@ -245,75 +254,228 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Main Play Buttons */}
+        {/* Main Play Buttons - Unified Presentation */}
         <View style={styles.playButtonsContainer}>
-          <Text style={styles.sectionTitle}>Choose Your Mode</Text>
+          <Text style={styles.sectionTitle}>Play VERBLOC</Text>
+          <Text style={styles.sectionSubtitle}>Two ways to enjoy the same great game</Text>
           
-          <TouchableOpacity
-            style={[styles.playButton, styles.soloButton]}
-            onPress={handlePlaySolo}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={[colors.primary, '#4F46E5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.playButtonGradient}
-            >
-              <View style={styles.playButtonIcon}>
-                <IconSymbol
-                  ios_icon_name="play.circle.fill"
-                  android_material_icon_name="play-circle-filled"
-                  size={48}
-                  color="#FFFFFF"
-                />
-              </View>
-              <View style={styles.playButtonContent}>
-                <Text style={styles.playButtonTitle}>Play Solo</Text>
-                <Text style={styles.playButtonSubtitle}>Practice and master your skills</Text>
-              </View>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={28}
-                color="#FFFFFF"
-              />
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* Show last played mode first if available */}
+          {lastMode === 'solo' ? (
+            <>
+              <TouchableOpacity
+                style={[styles.playButton, styles.primaryButton]}
+                onPress={handlePlaySolo}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.primary, '#4F46E5']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="play.circle.fill"
+                      android_material_icon_name="play-circle-filled"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <View style={styles.playButtonTitleRow}>
+                      <Text style={styles.playButtonTitle}>Play Solo</Text>
+                      <View style={styles.lastPlayedBadge}>
+                        <Text style={styles.lastPlayedText}>Last Played</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.playButtonSubtitle}>Practice and master your skills</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.playButton, styles.multiplayerButton]}
-            onPress={handleMultiplayer}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={[colors.secondary, '#7C3AED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.playButtonGradient}
-            >
-              <View style={styles.playButtonIcon}>
-                <IconSymbol
-                  ios_icon_name="person.2.circle.fill"
-                  android_material_icon_name="group"
-                  size={48}
-                  color="#FFFFFF"
-                />
-              </View>
-              <View style={styles.playButtonContent}>
-                <Text style={styles.playButtonTitle}>Multiplayer</Text>
-                <Text style={styles.playButtonSubtitle}>
-                  {activeGames.length > 0 ? 'Continue your games' : 'Challenge friends and rivals'}
-                </Text>
-              </View>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={28}
-                color="#FFFFFF"
-              />
-            </LinearGradient>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.playButton, styles.secondaryButton]}
+                onPress={handleMultiplayer}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.secondary, '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="person.2.circle.fill"
+                      android_material_icon_name="group"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <Text style={styles.playButtonTitle}>Multiplayer</Text>
+                    <Text style={styles.playButtonSubtitle}>
+                      {activeGames.length > 0 ? 'Continue your games' : 'Challenge friends and rivals'}
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          ) : lastMode === 'multiplayer' ? (
+            <>
+              <TouchableOpacity
+                style={[styles.playButton, styles.primaryButton]}
+                onPress={handleMultiplayer}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.secondary, '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="person.2.circle.fill"
+                      android_material_icon_name="group"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <View style={styles.playButtonTitleRow}>
+                      <Text style={styles.playButtonTitle}>Multiplayer</Text>
+                      <View style={styles.lastPlayedBadge}>
+                        <Text style={styles.lastPlayedText}>Last Played</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.playButtonSubtitle}>
+                      {activeGames.length > 0 ? 'Continue your games' : 'Challenge friends and rivals'}
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.playButton, styles.secondaryButton]}
+                onPress={handlePlaySolo}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.primary, '#4F46E5']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="play.circle.fill"
+                      android_material_icon_name="play-circle-filled"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <Text style={styles.playButtonTitle}>Play Solo</Text>
+                    <Text style={styles.playButtonSubtitle}>Practice and master your skills</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Default: Show both equally */}
+              <TouchableOpacity
+                style={[styles.playButton, styles.primaryButton]}
+                onPress={handlePlaySolo}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.primary, '#4F46E5']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="play.circle.fill"
+                      android_material_icon_name="play-circle-filled"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <Text style={styles.playButtonTitle}>Play Solo</Text>
+                    <Text style={styles.playButtonSubtitle}>Practice and master your skills</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.playButton, styles.primaryButton]}
+                onPress={handleMultiplayer}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[colors.secondary, '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.playButtonGradient}
+                >
+                  <View style={styles.playButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="person.2.circle.fill"
+                      android_material_icon_name="group"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.playButtonContent}>
+                    <Text style={styles.playButtonTitle}>Multiplayer</Text>
+                    <Text style={styles.playButtonSubtitle}>
+                      {activeGames.length > 0 ? 'Continue your games' : 'Challenge friends and rivals'}
+                    </Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={28}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Active Games Indicator */}
@@ -539,6 +701,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
   playButton: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -548,10 +715,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
-  soloButton: {
-    marginBottom: 4,
+  primaryButton: {
+    marginBottom: 12,
   },
-  multiplayerButton: {
+  secondaryButton: {
     marginBottom: 4,
   },
   playButtonGradient: {
@@ -570,10 +737,28 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  playButtonTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   playButtonTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  lastPlayedBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  lastPlayedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   playButtonSubtitle: {
     fontSize: 14,

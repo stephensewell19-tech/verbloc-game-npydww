@@ -25,7 +25,9 @@ interface GameCompletionModalProps {
   xpEarned?: number;
   leveledUp?: boolean;
   newLevel?: number;
+  currentMode?: 'solo' | 'multiplayer';
   onPlayAgain: () => void;
+  onSwitchMode?: () => void;
   onBackToHome: () => void;
 }
 
@@ -43,7 +45,9 @@ export default function GameCompletionModal({
   xpEarned,
   leveledUp,
   newLevel,
+  currentMode,
   onPlayAgain,
+  onSwitchMode,
   onBackToHome,
 }: GameCompletionModalProps) {
   if (status === 'playing') return null;
@@ -222,7 +226,7 @@ export default function GameCompletionModal({
               <Text style={styles.encouragementText}>{encouragement}</Text>
             </View>
 
-            {/* ALWAYS-VISIBLE PLAY AGAIN BUTTON (Retention Mechanic) */}
+            {/* PRIMARY ACTION: PLAY AGAIN (Same Mode) */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[styles.button, styles.playAgainButton]}
@@ -235,8 +239,29 @@ export default function GameCompletionModal({
                   size={24}
                   color="#FFFFFF"
                 />
-                <Text style={styles.buttonText}>Play Again</Text>
+                <Text style={styles.buttonText}>
+                  Play Again {currentMode === 'solo' ? '(Solo)' : '(Multiplayer)'}
+                </Text>
               </TouchableOpacity>
+
+              {/* SECONDARY ACTION: SWITCH MODE (Optional) */}
+              {onSwitchMode && (
+                <TouchableOpacity
+                  style={[styles.button, styles.switchModeButton]}
+                  onPress={onSwitchMode}
+                  activeOpacity={0.8}
+                >
+                  <IconSymbol
+                    ios_icon_name="arrow.left.arrow.right"
+                    android_material_icon_name="swap-horiz"
+                    size={24}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.buttonText, styles.switchModeButtonText]}>
+                    Try {currentMode === 'solo' ? 'Multiplayer' : 'Solo'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.button, styles.homeButton]}
@@ -247,7 +272,7 @@ export default function GameCompletionModal({
                   ios_icon_name="house.fill"
                   android_material_icon_name="home"
                   size={24}
-                  color={colors.text}
+                  color={colors.textSecondary}
                 />
                 <Text style={[styles.buttonText, styles.homeButtonText]}>Home</Text>
               </TouchableOpacity>
@@ -429,15 +454,23 @@ const styles = StyleSheet.create({
   playAgainButton: {
     backgroundColor: colors.primary,
   },
-  homeButton: {
+  switchModeButton: {
     backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  homeButton: {
+    backgroundColor: colors.backgroundAlt,
   },
   buttonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  switchModeButtonText: {
+    color: colors.primary,
+  },
   homeButtonText: {
-    color: colors.text,
+    color: colors.textSecondary,
   },
 });

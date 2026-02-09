@@ -30,6 +30,7 @@ import React, { useState, useEffect } from 'react';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
 import * as Haptics from 'expo-haptics';
+import { setLastPlayedMode } from '@/utils/onboarding';
 
 export default function GameScreen() {
   const router = useRouter();
@@ -81,6 +82,10 @@ export default function GameScreen() {
 
   useEffect(() => {
     console.log('GameScreen mounted with params:', params);
+    
+    // Remember the mode the player chose
+    setLastPlayedMode(gameMode);
+    
     if (gameId) {
       loadExistingGame(gameId);
     } else {
@@ -460,7 +465,20 @@ export default function GameScreen() {
 
   function handleBackToHome() {
     console.log('Navigating back to home');
-    router.back();
+    router.push('/(tabs)/(home)');
+  }
+
+  function handleSwitchMode() {
+    console.log('Switching mode from', gameMode, 'to', gameMode === 'solo' ? 'multiplayer' : 'solo');
+    setShowCompletionModal(false);
+    
+    if (gameMode === 'solo') {
+      // Switch to Multiplayer
+      router.push('/multiplayer-matchmaking');
+    } else {
+      // Switch to Solo
+      router.push('/board-select?mode=Solo');
+    }
   }
 
   function getInstructionsText(): string {
@@ -776,7 +794,9 @@ export default function GameScreen() {
         xpEarned={xpEarned}
         leveledUp={leveledUp}
         newLevel={newLevel}
+        currentMode={gameMode}
         onPlayAgain={handleNewGame}
+        onSwitchMode={handleSwitchMode}
         onBackToHome={handleBackToHome}
       />
 

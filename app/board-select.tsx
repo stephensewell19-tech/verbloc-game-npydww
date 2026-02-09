@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal } from '@/components/button';
 import { authenticatedGet } from '@/utils/api';
+import { setLastPlayedMode } from '@/utils/onboarding';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
@@ -120,6 +121,9 @@ export default function BoardSelectScreen() {
 
   const handleBoardSelect = (board: BoardListItem) => {
     console.log('[BoardSelect] Board selected:', board.name, 'mode:', mode);
+    
+    // Remember the mode the player chose
+    setLastPlayedMode(mode.toLowerCase() as 'solo' | 'multiplayer');
     
     // Set turn limit based on difficulty for solo mode
     let turnLimit = 20; // Default

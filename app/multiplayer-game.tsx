@@ -15,6 +15,7 @@ import { colors } from '@/styles/commonStyles';
 import { Modal } from '@/components/button';
 import { authenticatedPost, authenticatedGet } from '@/utils/api';
 import GameBoard from '@/components/GameBoard';
+import { setLastPlayedMode } from '@/utils/onboarding';
 import {
   MultiplayerGame,
   TurnStatus,
@@ -47,6 +48,9 @@ export default function MultiplayerGameScreen() {
 
   useEffect(() => {
     if (gameId) {
+      // Remember that player chose multiplayer
+      setLastPlayedMode('multiplayer');
+      
       loadGame();
       loadTurnStatus();
       
