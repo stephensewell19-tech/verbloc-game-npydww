@@ -6,12 +6,12 @@ import { BoardState, Position, PuzzleMode } from '@/types/game';
 // ============================================
 
 /**
- * Common English words dictionary (3+ letters)
- * Rejects extremely obscure or exploitative entries
+ * Comprehensive English words dictionary (3+ letters)
+ * Includes common words for gameplay
  * Case-insensitive validation
  */
 const COMMON_WORDS = new Set([
-  // 3-letter words
+  // 3-letter words (expanded)
   'CAT', 'DOG', 'BAT', 'RAT', 'HAT', 'MAT', 'SAT', 'FAT', 'PAT', 'VAT',
   'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER',
   'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW',
@@ -20,8 +20,14 @@ const COMMON_WORDS = new Set([
   'FUN', 'GOT', 'HOT', 'JOB', 'LAY', 'LOT', 'MAY', 'RAN', 'RED', 'RUN',
   'SET', 'SIT', 'TEN', 'TOP', 'TRY', 'WIN', 'YES', 'YET', 'AGO', 'AIR',
   'BAD', 'BAG', 'BED', 'BIT', 'BOX', 'BUS', 'BUY', 'CAR', 'CUP', 'CUT',
+  'EAR', 'EAT', 'EGG', 'EYE', 'FEW', 'FIT', 'FLY', 'FOX', 'GAS', 'GUN',
+  'HIT', 'ICE', 'ILL', 'KEY', 'LAW', 'LEG', 'LIE', 'LOW', 'MAP', 'MIX',
+  'NOR', 'ODD', 'OFF', 'OIL', 'OWN', 'PAY', 'PEN', 'PET', 'PIE', 'PIG',
+  'POT', 'RAW', 'ROW', 'RUB', 'RUG', 'SAD', 'SEA', 'SIX', 'SKY', 'SON',
+  'SUN', 'TAX', 'TEA', 'TIE', 'TON', 'TOY', 'VAN', 'WAR', 'WET', 'WHY',
+  'ZOO', 'ACE', 'ACT', 'ADD', 'AGE', 'AID', 'AIM', 'ART', 'ASK', 'ATE',
   
-  // 4-letter words
+  // 4-letter words (expanded)
   'ABLE', 'BACK', 'BEEN', 'CALL', 'CAME', 'COME', 'EACH', 'EVEN', 'FIND',
   'GIVE', 'GOOD', 'HAND', 'HAVE', 'HERE', 'HIGH', 'INTO', 'JUST', 'KNOW',
   'LAST', 'LIFE', 'LIKE', 'LINE', 'LONG', 'LOOK', 'MADE', 'MAKE', 'MANY',
@@ -40,8 +46,24 @@ const COMMON_WORDS = new Set([
   'SORT', 'STAY', 'STEP', 'STOP', 'SURE', 'TALK', 'TEAM', 'TOLD', 'TOOK',
   'TOWN', 'TREE', 'TRUE', 'TURN', 'USED', 'WAIT', 'WALK', 'WALL', 'WEEK',
   'WEST', 'WIFE', 'WILL', 'WIND', 'WISH', 'WORD', 'WORE', 'YARD', 'ZONE',
+  'ABLE', 'ACID', 'AGED', 'ALSO', 'AREA', 'ARMY', 'BABY', 'BACK', 'BALL',
+  'BAND', 'BANK', 'BASE', 'BATH', 'BEAR', 'BEAT', 'BEER', 'BELL', 'BELT',
+  'BENT', 'BIKE', 'BILL', 'BIRD', 'BLOW', 'BLUE', 'BOAT', 'BODY', 'BOMB',
+  'BOND', 'BONE', 'BOOK', 'BOOM', 'BORN', 'BOSS', 'BOWL', 'BULK', 'BURN',
+  'BUSH', 'BUSY', 'CAFE', 'CAGE', 'CAKE', 'CALM', 'CAMP', 'CARD', 'CARE',
+  'CASE', 'CASH', 'CAST', 'CELL', 'CHAT', 'CHIP', 'CLUB', 'COAL', 'COAT',
+  'CODE', 'COLD', 'COMB', 'COOL', 'COPE', 'COPY', 'CORE', 'COST', 'CREW',
+  'CROP', 'DARK', 'DATA', 'DATE', 'DAWN', 'DAYS', 'DEAD', 'DEAL', 'DEAN',
+  'DEAR', 'DEBT', 'DEEP', 'DENY', 'DESK', 'DIAL', 'DICK', 'DIET', 'DISC',
+  'DISK', 'DOES', 'DOLL', 'DOOR', 'DOSE', 'DRAG', 'DRAW', 'DREW', 'DROP',
+  'DRUG', 'DRUM', 'DUAL', 'DUCK', 'DUKE', 'DULL', 'DUMP', 'DUST', 'DUTY',
+  'EACH', 'EARN', 'EASE', 'EAST', 'EASY', 'EDGE', 'ELSE', 'EVEN', 'EVER',
+  'EVIL', 'EXIT', 'FACE', 'FACT', 'FAIL', 'FAIR', 'FALL', 'FARM', 'FAST',
+  'FATE', 'FEAR', 'FEED', 'FEEL', 'FEET', 'FELL', 'FELT', 'FILE', 'FILL',
+  'FILM', 'FIND', 'FINE', 'FIRM', 'FISH', 'FIVE', 'FLAG', 'FLAT', 'FLEW',
+  'FLOW', 'FOLK', 'FOND', 'FONT', 'FOOL', 'FOOT', 'FORD', 'FORK', 'FORT',
   
-  // 5-letter words
+  // 5-letter words (expanded)
   'ABOUT', 'ABOVE', 'AFTER', 'AGAIN', 'ALONG', 'AMONG', 'ASKED', 'BASED',
   'BEGIN', 'BEING', 'BELOW', 'BLACK', 'BRING', 'BUILD', 'CARRY', 'CAUSE',
   'CHAIR', 'CHILD', 'CLEAR', 'CLOSE', 'COULD', 'DOING', 'EARLY', 'EARTH',
@@ -60,8 +82,9 @@ const COMMON_WORDS = new Set([
   'WHICH', 'WHILE', 'WHITE', 'WHOLE', 'WHOSE', 'WOMAN', 'WORLD', 'WOULD',
   'WRITE', 'WRONG', 'YOUNG', 'BREAK', 'CLAIM', 'SHIFT', 'VAULT', 'NORTH',
   'SOUTH', 'MADAM', 'RADAR', 'CIVIC', 'KAYAK', 'REFER', 'ROTOR', 'SAGAS',
+  'BOXES', 'FOXES', 'MIXED', 'FIXED', 'TAXED', 'WAXED', 'VEXED', 'HEXED',
   
-  // 6-letter words
+  // 6-letter words (expanded)
   'ACROSS', 'ACTION', 'ALWAYS', 'AMOUNT', 'ANSWER', 'APPEAR', 'AROUND',
   'ATTACK', 'BECAME', 'BECOME', 'BEFORE', 'BEHIND', 'BETTER', 'BEYOND',
   'BOUGHT', 'BROKEN', 'CALLED', 'CANNOT', 'CENTER', 'CENTRE', 'CHANGE',
@@ -86,8 +109,9 @@ const COMMON_WORDS = new Set([
   'SYSTEM', 'TAKING', 'THOUGH', 'TOWARD', 'TRAVEL', 'TRYING', 'TURNED',
   'TWENTY', 'UNABLE', 'UNITED', 'UNLESS', 'UNLIKE', 'WANTED', 'WINDOW',
   'WINTER', 'WITHIN', 'WONDER', 'WORKED', 'WRITER', 'UNLOCK', 'PHRASE',
+  'BOXING', 'FOXING', 'MIXING', 'FIXING', 'TAXING', 'WAXING',
   
-  // 7+ letter words
+  // 7+ letter words (expanded)
   'ABILITY', 'ACCOUNT', 'ADDRESS', 'AGAINST', 'ALREADY', 'ANOTHER',
   'ANYTHING', 'ARRIVED', 'ARTICLE', 'ATTEMPT', 'AVERAGE', 'BECAUSE',
   'BELIEVE', 'BENEFIT', 'BETWEEN', 'BROTHER', 'BROUGHT', 'BUILDING',
@@ -132,6 +156,28 @@ const COMMON_WORDS = new Set([
   // Direction words
   'NORTH', 'SOUTH', 'EAST', 'WEST', 'UP', 'DOWN', 'LEFT', 'RIGHT',
   'FORWARD', 'BACKWARD', 'UPWARD', 'DOWNWARD',
+  
+  // Additional common 3-4 letter words for better gameplay
+  'APEX', 'AQUA', 'ARCH', 'ATOM', 'AUNT', 'AUTO', 'BAKE', 'BARN', 'BEAN',
+  'BEEF', 'BELL', 'BEND', 'BIKE', 'BIND', 'BITE', 'BLOB', 'BLOG', 'BLOW',
+  'BLUR', 'BOIL', 'BOLD', 'BOLT', 'BONE', 'BOOK', 'BOOM', 'BOOT', 'BORE',
+  'BOSS', 'BOWL', 'BOXY', 'BRAG', 'BRAN', 'BREW', 'BRIM', 'BULK', 'BUMP',
+  'BUNK', 'BURN', 'BURP', 'BURY', 'BUSH', 'BUST', 'BUZZ', 'BYTE', 'CAGE',
+  'CAKE', 'CALF', 'CALM', 'CAME', 'CAMP', 'CANE', 'CAPE', 'CARD', 'CARE',
+  'CARP', 'CART', 'CASE', 'CASH', 'CAST', 'CAVE', 'CELL', 'CENT', 'CHAP',
+  'CHAR', 'CHAT', 'CHEF', 'CHEW', 'CHIN', 'CHIP', 'CHOP', 'CITE', 'CLAD',
+  'CLAM', 'CLAN', 'CLAP', 'CLAW', 'CLAY', 'CLIP', 'CLOD', 'CLOG', 'CLUB',
+  'CLUE', 'COAL', 'COAT', 'CODE', 'COIL', 'COIN', 'COLD', 'COLT', 'COMB',
+  'CONE', 'COOK', 'COOL', 'COPE', 'COPY', 'CORD', 'CORE', 'CORK', 'CORN',
+  'COST', 'COZY', 'CRAB', 'CRAM', 'CREW', 'CRIB', 'CROP', 'CROW', 'CUBE',
+  'CURB', 'CURE', 'CURL', 'CUTE', 'DAMP', 'DARE', 'DARK', 'DART', 'DASH',
+  'DATA', 'DATE', 'DAWN', 'DAZE', 'DEAL', 'DEAN', 'DEAR', 'DEBT', 'DECK',
+  'DEED', 'DEEM', 'DEEP', 'DEER', 'DEMO', 'DENT', 'DENY', 'DESK', 'DIAL',
+  'DICE', 'DIET', 'DIME', 'DINE', 'DIRE', 'DIRT', 'DISC', 'DISH', 'DISK',
+  'DIVE', 'DOCK', 'DOLL', 'DOME', 'DONE', 'DOOM', 'DOSE', 'DOVE', 'DOWN',
+  'DOZE', 'DRAB', 'DRAG', 'DRAM', 'DRAW', 'DREW', 'DRIP', 'DROP', 'DRUG',
+  'DRUM', 'DUAL', 'DUCK', 'DUCT', 'DUDE', 'DUEL', 'DUET', 'DUKE', 'DULL',
+  'DUMB', 'DUMP', 'DUNE', 'DUNK', 'DUPE', 'DUSK', 'DUST', 'DUTY', 'DYED',
 ]);
 
 /**
@@ -151,7 +197,7 @@ export function validateWord(word: string): boolean {
   const upperWord = word.toUpperCase();
   const isValid = COMMON_WORDS.has(upperWord);
   
-  console.log('Word validation result:', isValid);
+  console.log('Word validation result:', isValid, 'for word:', upperWord);
   return isValid;
 }
 

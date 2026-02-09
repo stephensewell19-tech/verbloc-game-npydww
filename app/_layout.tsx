@@ -18,6 +18,7 @@ function RootLayoutContent() {
   const router = useRouter();
   const segments = useSegments();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -38,18 +39,20 @@ function RootLayoutContent() {
   };
 
   useEffect(() => {
-    if (fontsLoaded && isOnboardingComplete !== null) {
+    if (fontsLoaded && isOnboardingComplete !== null && !isReady) {
+      setIsReady(true);
       SplashScreen.hideAsync();
-      
-      // Redirect to onboarding if not completed
-      if (!isOnboardingComplete && segments[0] !== 'onboarding' && segments[0] !== 'auth') {
-        console.log('[RootLayout] Redirecting to onboarding');
-        router.replace('/onboarding');
-      }
     }
-  }, [fontsLoaded, isOnboardingComplete, segments]);
+  }, [fontsLoaded, isOnboardingComplete, isReady]);
 
-  if (!fontsLoaded || isOnboardingComplete === null) {
+  useEffect(() => {
+    if (isReady && !isOnboardingComplete && segments[0] !== 'onboarding' && segments[0] !== 'auth') {
+      console.log('[RootLayout] Redirecting to onboarding');
+      router.replace('/onboarding');
+    }
+  }, [isReady, isOnboardingComplete, segments]);
+
+  if (!isReady) {
     return null;
   }
 
