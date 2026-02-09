@@ -15,6 +15,7 @@ import DailyChallengeCard from '@/components/DailyChallengeCard';
 import SpecialEventsCard from '@/components/SpecialEventsCard';
 import { CurrentSpecialEvents } from '@/types/game';
 import { getLastPlayedMode } from '@/utils/onboarding';
+import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,6 +30,10 @@ export default function HomeScreen() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
   const [lastMode, setLastMode] = useState<'solo' | 'multiplayer' | null>(null);
+  
+  // Feature flags
+  const isRankedModeEnabled = useFeatureFlag('rankedMode');
+  const isTournamentModeEnabled = useFeatureFlag('tournamentMode');
 
   useEffect(() => {
     console.log('[Home] Home screen mounted (iOS)');
@@ -495,6 +500,98 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Future Features - Enabled via Feature Flags */}
+        {(isRankedModeEnabled || isTournamentModeEnabled) && (
+          <View style={styles.futureModesContainer}>
+            <Text style={styles.sectionTitle}>Competitive Play</Text>
+            <Text style={styles.sectionSubtitle}>Test your skills in ranked competition</Text>
+            
+            {isRankedModeEnabled && (
+              <TouchableOpacity
+                style={styles.featureButton}
+                onPress={() => {
+                  console.log('[Home] User tapped Ranked Mode button');
+                  alert('Ranked Mode coming soon!');
+                }}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#F59E0B', '#D97706']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.featureButtonGradient}
+                >
+                  <View style={styles.featureButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="trophy.fill"
+                      android_material_icon_name="emoji-events"
+                      size={32}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.featureButtonContent}>
+                    <View style={styles.featureButtonTitleRow}>
+                      <Text style={styles.featureButtonTitle}>Ranked Mode</Text>
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>NEW</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.featureButtonSubtitle}>Climb the leaderboard and earn rewards</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+
+            {isTournamentModeEnabled && (
+              <TouchableOpacity
+                style={styles.featureButton}
+                onPress={() => {
+                  console.log('[Home] User tapped Tournament Mode button');
+                  alert('Tournament Mode coming soon!');
+                }}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#8B5CF6', '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.featureButtonGradient}
+                >
+                  <View style={styles.featureButtonIcon}>
+                    <IconSymbol
+                      ios_icon_name="star.circle.fill"
+                      android_material_icon_name="stars"
+                      size={32}
+                      color="#FFFFFF"
+                    />
+                  </View>
+                  <View style={styles.featureButtonContent}>
+                    <View style={styles.featureButtonTitleRow}>
+                      <Text style={styles.featureButtonTitle}>Tournaments</Text>
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>NEW</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.featureButtonSubtitle}>Compete in scheduled tournaments</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="chevron-right"
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Difficulty Progression Guide */}
         <View style={styles.difficultyProgressContainer}>
           <Text style={styles.sectionTitle}>Difficulty Tiers</Text>
@@ -783,6 +880,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  futureModesContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    gap: 16,
+  },
+  featureButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  featureButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  featureButtonIcon: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featureButtonContent: {
+    flex: 1,
+    gap: 4,
+  },
+  featureButtonTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureButtonTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  newBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  featureButtonSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   tipContainer: {
     paddingHorizontal: 20,

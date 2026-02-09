@@ -453,6 +453,31 @@ export default function ProfileScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Developer Tools</Text>
+            
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/admin-config')}
+              accessibilityLabel="Remote Configuration"
+              accessibilityHint="Double tap to view feature flags and A/B tests"
+            >
+              <IconSymbol
+                ios_icon_name="gear"
+                android_material_icon_name="settings"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>Remote Configuration</Text>
+                <Text style={styles.menuItemSubtitle}>Feature flags & A/B tests</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+            
             <TouchableOpacity
               style={styles.seedButton}
               onPress={handleSeedBoards}

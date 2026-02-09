@@ -3,6 +3,7 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SuperwallProvider } from '@/contexts/SuperwallContext';
+import { RemoteConfigProvider } from '@/contexts/RemoteConfigContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useEffect, useState } from 'react';
 import { useFonts } from 'expo-font';
@@ -80,6 +81,7 @@ function RootLayoutContent() {
       <Stack.Screen name="accessibility-settings" options={{ headerShown: false }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-config" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
@@ -90,7 +92,9 @@ export default function RootLayout() {
     <ErrorBoundary>
       <AuthProvider>
         <SuperwallProvider>
-          <RootLayoutContent />
+          <RemoteConfigProvider>
+            <RootLayoutContent />
+          </RemoteConfigProvider>
         </SuperwallProvider>
       </AuthProvider>
     </ErrorBoundary>
