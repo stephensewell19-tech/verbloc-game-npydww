@@ -1,5 +1,4 @@
 
-
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SuperwallProvider } from '@/contexts/SuperwallContext';
@@ -27,18 +26,18 @@ function RootLayoutContent() {
   });
 
   useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
+        setIsOnboardingComplete(completed === 'true');
+      } catch (error) {
+        console.error('[RootLayout] Failed to check onboarding status:', error);
+        setIsOnboardingComplete(false);
+      }
+    };
+
     checkOnboardingStatus();
   }, []);
-
-  const checkOnboardingStatus = async () => {
-    try {
-      const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
-      setIsOnboardingComplete(completed === 'true');
-    } catch (error) {
-      console.error('[RootLayout] Failed to check onboarding status:', error);
-      setIsOnboardingComplete(false);
-    }
-  };
 
   useEffect(() => {
     if (fontsLoaded && isOnboardingComplete !== null && !isReady) {
@@ -48,7 +47,15 @@ function RootLayoutContent() {
   }, [fontsLoaded, isOnboardingComplete, isReady]);
 
   useEffect(() => {
-    if (isReady && !isOnboardingComplete && segments[0] !== 'onboarding' && segments[0] !== 'auth') {
+    if (!isReady || isOnboardingComplete === null) {
+      return;
+    }
+
+    const currentRoute = segments[0];
+    const isOnAuthRoute = currentRoute === 'auth' || currentRoute === 'auth-popup' || currentRoute === 'auth-callback';
+    const isOnOnboardingRoute = currentRoute === 'onboarding';
+
+    if (!isOnboardingComplete && !isOnOnboardingRoute && !isOnAuthRoute) {
       console.log('[RootLayout] Redirecting to onboarding');
       router.replace('/onboarding');
     }
@@ -82,6 +89,7 @@ function RootLayoutContent() {
       <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
       <Stack.Screen name="admin-config" options={{ headerShown: false }} />
+      <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

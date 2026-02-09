@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { RemoteConfig, getRemoteConfig, refreshRemoteConfig, isFeatureEnabled, getABTestVariant } from '@/utils/remoteConfig';
+import { RemoteConfig, getRemoteConfig, refreshRemoteConfig } from '@/utils/remoteConfig';
 
 interface RemoteConfigContextType {
   config: RemoteConfig | null;
@@ -18,21 +18,25 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadConfig = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const remoteConfig = await getRemoteConfig();
-      setConfig(remoteConfig);
-      console.log('Remote config loaded in context:', remoteConfig);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load remote config';
-      setError(errorMessage);
-      console.error('Error loading remote config:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const remoteConfig = await getRemoteConfig();
+        setConfig(remoteConfig);
+        console.log('[RemoteConfig] Config loaded:', remoteConfig);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load remote config';
+        setError(errorMessage);
+        console.error('[RemoteConfig] Error loading config:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConfig();
+  }, []);
 
   const refresh = async () => {
     try {
@@ -40,30 +44,30 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
       setError(null);
       const remoteConfig = await refreshRemoteConfig();
       setConfig(remoteConfig);
-      console.log('Remote config refreshed:', remoteConfig);
+      console.log('[RemoteConfig] Config refreshed:', remoteConfig);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh remote config';
       setError(errorMessage);
-      console.error('Error refreshing remote config:', err);
+      console.error('[RemoteConfig] Error refreshing config:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const checkFeatureEnabled = (featureName: string): boolean => {
-    if (!config) return false;
+    if (!config) {
+      return false;
+    }
     return config.featureFlags[featureName] ?? false;
   };
 
   const getVariant = (testName: string): string | null => {
-    if (!config) return null;
+    if (!config) {
+      return null;
+    }
     const test = config.abTests[testName];
     return test?.enabled ? test.variant : null;
   };
-
-  useEffect(() => {
-    loadConfig();
-  }, []);
 
   return (
     <RemoteConfigContext.Provider
