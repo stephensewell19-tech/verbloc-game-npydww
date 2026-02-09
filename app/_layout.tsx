@@ -1,4 +1,5 @@
 
+
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SuperwallProvider } from '@/contexts/SuperwallContext';
@@ -76,6 +77,7 @@ function RootLayoutContent() {
       <Stack.Screen name="special-event-detail" options={{ headerShown: false }} />
       <Stack.Screen name="subscription" options={{ headerShown: false }} />
       <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
+      <Stack.Screen name="accessibility-settings" options={{ headerShown: false }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />

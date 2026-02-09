@@ -1,5 +1,15 @@
 
+import { Modal } from '@/components/button';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useSubscription } from '@/contexts/SuperwallContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { authenticatedGet, apiPost } from '@/utils/api';
+import { PlayerStats, PlayerProgression } from '@/types/game';
 import React, { useState, useEffect } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '@/styles/commonStyles';
 import {
   View,
   Text,
@@ -9,587 +19,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SuperwallContext';
-import { useRouter } from 'expo-router';
-import { authenticatedGet, apiPost } from '@/utils/api';
-import { PlayerStats, PlayerProgression } from '@/types/game';
-import { Modal } from '@/components/button';
-import { LinearGradient } from 'expo-linear-gradient';
-
-export default function ProfileScreen() {
-  const router = useRouter();
-  const { user, signOut } = useAuth();
-  const { isPremium, subscriptionStatus } = useSubscription();
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<PlayerStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [progression, setProgression] = useState<PlayerProgression | null>(null);
-  const [progressionLoading, setProgressionLoading] = useState(true);
-  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
-  const [confirmSignOutModal, setConfirmSignOutModal] = useState(false);
-
-  useEffect(() => {
-    fetchPlayerStats();
-    fetchProgression();
-  }, []);
-
-  const fetchPlayerStats = async () => {
-    console.log('[Profile] Fetching player stats...');
-    try {
-      setStatsLoading(true);
-      const data = await authenticatedGet<PlayerStats>('/api/player/stats');
-      console.log('[Profile] Player stats loaded:', data);
-      setStats(data);
-    } catch (error: any) {
-      console.error('[Profile] Failed to fetch player stats:', error);
-      
-      // Try to initialize stats if they don't exist
-      if (error.message?.includes('not found') || error.message?.includes('404')) {
-        console.log('[Profile] Attempting to initialize player stats...');
-        try {
-          await apiPost('/api/player/stats/initialize', {});
-          // Retry fetching stats
-          const retryData = await authenticatedGet<PlayerStats>('/api/player/stats');
-          console.log('[Profile] Player stats initialized and loaded:', retryData);
-          setStats(retryData);
-        } catch (initError: any) {
-          console.error('[Profile] Failed to initialize player stats:', initError);
-          setErrorModal({
-            visible: true,
-            message: initError.message || 'Failed to initialize player stats',
-          });
-        }
-      } else {
-        setErrorModal({
-          visible: true,
-          message: error.message || 'Failed to load player stats',
-        });
-      }
-    } finally {
-      setStatsLoading(false);
-    }
-  };
-
-  const fetchProgression = async () => {
-    console.log('[Profile] Fetching player progression...');
-    try {
-      setProgressionLoading(true);
-      const data = await authenticatedGet<PlayerProgression>('/api/player/progress');
-      console.log('[Profile] Player progression loaded:', data);
-      setProgression(data);
-    } catch (error: any) {
-      console.error('[Profile] Failed to fetch player progression:', error);
-    } finally {
-      setProgressionLoading(false);
-    }
-  };
-
-  const handleSeedBoards = async () => {
-    console.log('[Profile] User tapped Seed Production Boards button');
-    try {
-      setLoading(true);
-      const result = await apiPost<{ success: boolean; created: number; skipped: number; total: number; message: string }>(
-        '/api/boards/seed-production',
-        {}
-      );
-      console.log('[Profile] Production boards seeded:', result);
-      const successMessage = `${result.message}\n\nCreated: ${result.created}\nSkipped: ${result.skipped}\nTotal: ${result.total}`;
-      setErrorModal({
-        visible: true,
-        message: successMessage,
-      });
-    } catch (error: any) {
-      console.error('[Profile] Failed to seed production boards:', error);
-      setErrorModal({
-        visible: true,
-        message: error.message || 'Failed to seed production boards',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    console.log('User confirmed sign out');
-    setConfirmSignOutModal(false);
-    try {
-      setLoading(true);
-      await signOut();
-      router.replace('/auth');
-    } catch (error) {
-      console.error('Sign out error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const userName = user?.name || user?.email || 'Player';
-  const subscriptionStatusText = isPremium ? 'Premium' : 'Free';
-  const subscriptionStatusColor = isPremium ? colors.success : colors.textSecondary;
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <IconSymbol
-              ios_icon_name="person.circle.fill"
-              android_material_icon_name="account-circle"
-              size={80}
-              color={colors.primary}
-            />
-          </View>
-          <Text style={styles.userName}>{userName}</Text>
-          {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
-          
-          {/* Subscription Status Badge */}
-          <View style={[styles.subscriptionBadge, { backgroundColor: subscriptionStatusColor }]}>
-            <IconSymbol
-              ios_icon_name={isPremium ? "crown.fill" : "person.fill"}
-              android_material_icon_name={isPremium ? "workspace-premium" : "person"}
-              size={16}
-              color="#FFFFFF"
-            />
-            <Text style={styles.subscriptionBadgeText}>{subscriptionStatusText}</Text>
-          </View>
-        </View>
-
-        {/* Premium Upsell Card (for free users) */}
-        {!isPremium && (
-          <TouchableOpacity
-            style={styles.premiumUpsellCard}
-            onPress={() => router.push('/subscription')}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.premiumUpsellGradient}
-            >
-              <View style={styles.premiumUpsellContent}>
-                <IconSymbol
-                  ios_icon_name="crown.fill"
-                  android_material_icon_name="workspace-premium"
-                  size={32}
-                  color="#FFFFFF"
-                />
-                <View style={styles.premiumUpsellText}>
-                  <Text style={styles.premiumUpsellTitle}>Upgrade to Premium</Text>
-                  <Text style={styles.premiumUpsellSubtitle}>
-                    Unlimited matches, private lobbies, and more
-                  </Text>
-                </View>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={24}
-                  color="#FFFFFF"
-                />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* Progression Section */}
-        <View style={styles.progressionContainer}>
-          <Text style={styles.sectionTitle}>Progression</Text>
-          
-          {progressionLoading ? (
-            <View style={styles.statsLoading}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : (
-            <View style={styles.progressionContent}>
-              <LinearGradient
-                colors={[colors.primary, colors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.levelCard}
-              >
-                <View style={styles.levelCardContent}>
-                  <View style={styles.levelBadge}>
-                    <IconSymbol
-                      ios_icon_name="star.fill"
-                      android_material_icon_name="star"
-                      size={32}
-                      color="#FFFFFF"
-                    />
-                  </View>
-                  <View style={styles.levelInfo}>
-                    <Text style={styles.levelTitle}>Level {progression?.level || 1}</Text>
-                    <Text style={styles.levelSubtitle}>{progression?.xp || 0} XP</Text>
-                    <View style={styles.xpProgressBar}>
-                      <View 
-                        style={[
-                          styles.xpProgressFill, 
-                          { width: `${Math.min(((progression?.xp || 0) / ((progression?.xp || 0) + (progression?.xpToNextLevel || 1))) * 100, 100)}%` }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={styles.xpProgressText}>
-                      {progression?.xpToNextLevel || 0} XP to next level
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-
-              {/* Unlocks Summary */}
-              <View style={styles.unlocksGrid}>
-                <View style={styles.unlockCard}>
-                  <IconSymbol
-                    ios_icon_name="paintbrush.fill"
-                    android_material_icon_name="palette"
-                    size={24}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.unlockValue}>{progression?.unlockedCosmetics.length || 0}</Text>
-                  <Text style={styles.unlockLabel}>Cosmetics</Text>
-                </View>
-
-                <View style={styles.unlockCard}>
-                  <IconSymbol
-                    ios_icon_name="text.badge.star"
-                    android_material_icon_name="title"
-                    size={24}
-                    color={colors.secondary}
-                  />
-                  <Text style={styles.unlockValue}>{progression?.unlockedTitles.length || 0}</Text>
-                  <Text style={styles.unlockLabel}>Titles</Text>
-                </View>
-
-                <View style={styles.unlockCard}>
-                  <IconSymbol
-                    ios_icon_name="shield.fill"
-                    android_material_icon_name="verified"
-                    size={24}
-                    color={colors.highlight}
-                  />
-                  <Text style={styles.unlockValue}>{progression?.unlockedBadges.length || 0}</Text>
-                  <Text style={styles.unlockLabel}>Badges</Text>
-                </View>
-
-                <View style={styles.unlockCard}>
-                  <IconSymbol
-                    ios_icon_name="rosette"
-                    android_material_icon_name="military-tech"
-                    size={24}
-                    color={colors.accent}
-                  />
-                  <Text style={styles.unlockValue}>{progression?.achievements.length || 0}</Text>
-                  <Text style={styles.unlockLabel}>Achievements</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.statsContainer}>
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-          
-          {statsLoading ? (
-            <View style={styles.statsLoading}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : (
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="gamecontroller.fill"
-                  android_material_icon_name="sports-esports"
-                  size={32}
-                  color={colors.primary}
-                />
-                <Text style={styles.statValue}>{stats?.totalGamesPlayed || 0}</Text>
-                <Text style={styles.statLabel}>Games Played</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="trophy.fill"
-                  android_material_icon_name="emoji-events"
-                  size={32}
-                  color={colors.success}
-                />
-                <Text style={styles.statValue}>{stats?.totalWins || 0}</Text>
-                <Text style={styles.statLabel}>Wins</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="star.fill"
-                  android_material_icon_name="star"
-                  size={32}
-                  color={colors.highlight}
-                />
-                <Text style={styles.statValue}>{stats?.highestScore || 0}</Text>
-                <Text style={styles.statLabel}>High Score</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="flame.fill"
-                  android_material_icon_name="local-fire-department"
-                  size={32}
-                  color={colors.accent}
-                />
-                <Text style={styles.statValue}>{stats?.currentStreak || 0}</Text>
-                <Text style={styles.statLabel}>Streak</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="text.bubble.fill"
-                  android_material_icon_name="chat-bubble"
-                  size={32}
-                  color={colors.secondary}
-                />
-                <Text style={styles.statValue}>{stats?.totalWordsFormed || 0}</Text>
-                <Text style={styles.statLabel}>Words Formed</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <IconSymbol
-                  ios_icon_name="chart.bar.fill"
-                  android_material_icon_name="bar-chart"
-                  size={32}
-                  color={colors.primary}
-                />
-                <Text style={styles.statValue}>Level {stats?.level || 1}</Text>
-                <Text style={styles.statLabel}>{stats?.experiencePoints || 0} XP</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.actionsContainer}>
-          {/* Subscription Management */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/subscription')}
-          >
-            <IconSymbol
-              ios_icon_name="crown.fill"
-              android_material_icon_name="workspace-premium"
-              size={24}
-              color={isPremium ? colors.success : colors.text}
-            />
-            <Text style={styles.actionButtonText}>
-              {isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}
-            </Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => console.log('View leaderboard')}
-          >
-            <IconSymbol
-              ios_icon_name="chart.bar.fill"
-              android_material_icon_name="leaderboard"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Leaderboard</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => console.log('View achievements')}
-          >
-            <IconSymbol
-              ios_icon_name="rosette"
-              android_material_icon_name="military-tech"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Achievements</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/notification-preferences')}
-          >
-            <IconSymbol
-              ios_icon_name="bell.fill"
-              android_material_icon_name="notifications"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Notifications</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => console.log('Settings')}
-          >
-            <IconSymbol
-              ios_icon_name="gearshape.fill"
-              android_material_icon_name="settings"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Settings</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.seedButton]}
-            onPress={handleSeedBoards}
-            disabled={loading}
-          >
-            <IconSymbol
-              ios_icon_name="square.grid.3x3.fill"
-              android_material_icon_name="grid-on"
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={[styles.actionButtonText, styles.seedButtonText]}>
-              Seed Production Boards (70+)
-            </Text>
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={20}
-                color={colors.textSecondary}
-              />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Legal Section */}
-        <View style={styles.legalContainer}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/privacy-policy')}
-          >
-            <IconSymbol
-              ios_icon_name="lock.shield.fill"
-              android_material_icon_name="privacy-tip"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Privacy Policy</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/terms-of-service')}
-          >
-            <IconSymbol
-              ios_icon_name="doc.text.fill"
-              android_material_icon_name="description"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.actionButtonText}>Terms of Service</Text>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={() => setConfirmSignOutModal(true)}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <>
-              <IconSymbol
-                ios_icon_name="arrow.right.square"
-                android_material_icon_name="logout"
-                size={20}
-                color={colors.text}
-              />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <Text style={styles.versionText}>VERBLOC v1.0.0</Text>
-      </ScrollView>
-
-      <Modal
-        visible={errorModal.visible}
-        title={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'Success' : 'Error'}
-        message={errorModal.message}
-        onClose={() => setErrorModal({ visible: false, message: '' })}
-        type={errorModal.message.includes('Success') || errorModal.message.includes('Boards Created') ? 'success' : 'error'}
-      />
-
-      <Modal
-        visible={confirmSignOutModal}
-        title="Sign Out"
-        message="Are you sure you want to sign out?"
-        onClose={() => setConfirmSignOutModal(false)}
-        type="warning"
-      >
-        <View style={styles.modalButtons}>
-          <TouchableOpacity
-            style={[styles.modalButton, styles.modalButtonCancel]}
-            onPress={() => setConfirmSignOutModal(false)}
-          >
-            <Text style={styles.modalButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modalButton, styles.modalButtonConfirm]}
-            onPress={handleSignOut}
-          >
-            <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-    </SafeAreaView>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -600,262 +29,484 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  subscriptionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  subscriptionBadgeText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  premiumUpsellCard: {
-    marginHorizontal: 20,
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  premiumUpsellGradient: {
     padding: 20,
-  },
-  premiumUpsellContent: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
   },
-  premiumUpsellText: {
-    flex: 1,
-  },
-  premiumUpsellTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  premiumUpsellSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  progressionContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  progressionContent: {
-    gap: 16,
-  },
-  levelCard: {
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  levelCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  levelBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  profileIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  levelInfo: {
-    flex: 1,
-  },
-  levelTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  levelSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 12,
   },
-  xpProgressBar: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  xpProgressFill: {
-    height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-  },
-  xpProgressText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  unlocksGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  unlockCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    width: '48%',
-  },
-  unlockValue: {
+  username: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: 8,
+    marginBottom: 4,
   },
-  unlockLabel: {
-    fontSize: 12,
+  email: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
   },
   statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     paddingHorizontal: 20,
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  statsLoading: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
   statCard: {
+    flex: 1,
     backgroundColor: colors.card,
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 4,
     alignItems: 'center',
-    width: '48%',
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 8,
+    color: colors.primary,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
+    textAlign: 'center',
   },
-  actionsContainer: {
+  section: {
     paddingHorizontal: 20,
-    gap: 12,
+    marginBottom: 24,
   },
-  actionButton: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  progressCard: {
     backgroundColor: colors.card,
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  levelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  xpText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
   },
-  actionButtonText: {
+  menuItemContent: {
     flex: 1,
+    marginLeft: 12,
+  },
+  menuItemTitle: {
     fontSize: 16,
-    color: colors.text,
     fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
   },
-  seedButton: {
-    borderWidth: 2,
-    borderColor: colors.primary,
+  menuItemSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
-  seedButtonText: {
-    color: colors.primary,
+  premiumBadge: {
+    backgroundColor: colors.highlight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
   },
-  legalContainer: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-    gap: 12,
+  premiumText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.background,
   },
   signOutButton: {
-    backgroundColor: colors.error,
     marginHorizontal: 20,
-    marginTop: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    marginBottom: 20,
   },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  versionText: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 24,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  modalButton: {
+  loadingContainer: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  modalButtonCancel: {
-    backgroundColor: colors.backgroundAlt,
+  errorText: {
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: 8,
   },
-  modalButtonConfirm: {
-    backgroundColor: colors.error,
+  seedButton: {
+    backgroundColor: colors.primary,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
   },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  seedButtonText: {
     color: colors.text,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  modalButtonTextConfirm: {
-    color: '#FFFFFF',
+  seedingText: {
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
+
+export default function ProfileScreen() {
+  const { isPremium, showPaywall } = useSubscription();
+  const { user, signOut } = useAuth();
+  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const [progression, setProgression] = useState<PlayerProgression | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetchPlayerStats();
+    fetchProgression();
+  }, []);
+
+  const fetchPlayerStats = async () => {
+    try {
+      const data = await authenticatedGet<PlayerStats>('/api/player-stats');
+      setStats(data);
+      console.log('[Profile] Loaded player stats:', data);
+    } catch (error) {
+      console.error('[Profile] Failed to load stats:', error);
+    }
+  };
+
+  const fetchProgression = async () => {
+    try {
+      const data = await authenticatedGet<PlayerProgression>('/api/progression');
+      setProgression(data);
+      console.log('[Profile] Loaded progression:', data);
+    } catch (error) {
+      console.error('[Profile] Failed to load progression:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeedBoards = async () => {
+    setSeeding(true);
+    try {
+      const response = await apiPost('/api/boards/seed-production', {});
+      console.log('[Profile] Seeded boards:', response);
+      alert('Production boards seeded successfully!');
+    } catch (error) {
+      console.error('[Profile] Failed to seed boards:', error);
+      alert('Failed to seed boards. Please try again.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      console.log('[Profile] User initiated sign out');
+      await signOut();
+      console.log('[Profile] Sign out successful');
+      router.replace('/auth');
+    } catch (error) {
+      console.error('[Profile] Sign out failed:', error);
+      alert('Failed to sign out. Please try again.');
+    } finally {
+      setShowSignOutModal(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  const gamesPlayedValue = stats?.gamesPlayed?.toString() || '0';
+  const winRateValue = stats?.winRate ? `${Math.round(stats.winRate)}%` : '0%';
+  const currentStreakValue = stats?.currentStreak?.toString() || '0';
+
+  const levelValue = progression?.level?.toString() || '1';
+  const currentXpValue = progression?.currentXp?.toString() || '0';
+  const xpToNextValue = progression?.xpToNextLevel?.toString() || '100';
+  const xpProgressText = `${currentXpValue} / ${xpToNextValue} XP`;
+  const progressPercentage = progression ? (progression.currentXp / progression.xpToNextLevel) * 100 : 0;
+
+  return (
+    <>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View style={styles.profileIcon}>
+              <IconSymbol
+                ios_icon_name="person.fill"
+                android_material_icon_name="person"
+                size={40}
+                color={colors.text}
+              />
+            </View>
+            <Text style={styles.username}>{user?.name || 'Player'}</Text>
+            <Text style={styles.email}>{user?.email}</Text>
+            {isPremium && (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumText}>PREMIUM</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{gamesPlayedValue}</Text>
+              <Text style={styles.statLabel}>Games Played</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{winRateValue}</Text>
+              <Text style={styles.statLabel}>Win Rate</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{currentStreakValue}</Text>
+              <Text style={styles.statLabel}>Current Streak</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Progression</Text>
+            <View style={styles.progressCard}>
+              <View style={styles.levelRow}>
+                <Text style={styles.levelText}>Level {levelValue}</Text>
+                <Text style={styles.xpText}>{xpProgressText}</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
+              </View>
+              <Text style={styles.progressLabel}>
+                {Math.round(progressPercentage)}% to next level
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Settings</Text>
+
+            {!isPremium && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={showPaywall}
+                accessibilityLabel="Upgrade to Premium"
+                accessibilityHint="Double tap to view premium subscription options"
+              >
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={24}
+                  color={colors.highlight}
+                />
+                <View style={styles.menuItemContent}>
+                  <Text style={styles.menuItemTitle}>Upgrade to Premium</Text>
+                  <Text style={styles.menuItemSubtitle}>Unlock exclusive features</Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/accessibility-settings')}
+              accessibilityLabel="Accessibility Settings"
+              accessibilityHint="Double tap to customize accessibility options"
+            >
+              <IconSymbol
+                ios_icon_name="accessibility"
+                android_material_icon_name="accessibility"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>Accessibility</Text>
+                <Text style={styles.menuItemSubtitle}>Customize for your needs</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/notification-preferences')}
+              accessibilityLabel="Notification Preferences"
+              accessibilityHint="Double tap to manage notification settings"
+            >
+              <IconSymbol
+                ios_icon_name="bell.fill"
+                android_material_icon_name="notifications"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>Notifications</Text>
+                <Text style={styles.menuItemSubtitle}>Manage your alerts</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/privacy-policy')}
+              accessibilityLabel="Privacy Policy"
+              accessibilityHint="Double tap to read our privacy policy"
+            >
+              <IconSymbol
+                ios_icon_name="lock.shield.fill"
+                android_material_icon_name="security"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>Privacy Policy</Text>
+                <Text style={styles.menuItemSubtitle}>How we protect your data</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/terms-of-service')}
+              accessibilityLabel="Terms of Service"
+              accessibilityHint="Double tap to read our terms of service"
+            >
+              <IconSymbol
+                ios_icon_name="doc.text.fill"
+                android_material_icon_name="description"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>Terms of Service</Text>
+                <Text style={styles.menuItemSubtitle}>Usage guidelines</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Developer Tools</Text>
+            <TouchableOpacity
+              style={styles.seedButton}
+              onPress={handleSeedBoards}
+              disabled={seeding}
+              accessibilityLabel="Seed Production Boards"
+              accessibilityHint="Double tap to populate the database with game boards"
+            >
+              <Text style={styles.seedButtonText}>
+                {seeding ? 'Seeding...' : 'Seed Production Boards'}
+              </Text>
+            </TouchableOpacity>
+            {seeding && (
+              <Text style={styles.seedingText}>
+                This may take a moment...
+              </Text>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={styles.signOutButton}>
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.error }]}
+            onPress={() => setShowSignOutModal(true)}
+            accessibilityLabel="Sign Out"
+            accessibilityHint="Double tap to sign out of your account"
+          >
+            <IconSymbol
+              ios_icon_name="arrow.right.square.fill"
+              android_material_icon_name="logout"
+              size={24}
+              color={colors.text}
+            />
+            <View style={styles.menuItemContent}>
+              <Text style={[styles.menuItemTitle, { color: colors.text }]}>Sign Out</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      <Modal
+        visible={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        primaryButton={{
+          text: 'Sign Out',
+          onPress: handleSignOut,
+          variant: 'destructive',
+        }}
+        secondaryButton={{
+          text: 'Cancel',
+          onPress: () => setShowSignOutModal(false),
+        }}
+      />
+    </>
+  );
+}
