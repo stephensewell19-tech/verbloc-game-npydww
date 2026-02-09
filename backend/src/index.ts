@@ -13,9 +13,10 @@ import { registerBoardManagementRoutes } from './routes/board-management.js';
 import { registerMatchmakingRoutes } from './routes/matchmaking.js';
 import { registerTurnManagementRoutes } from './routes/turn-management.js';
 import { registerSocialInteractionRoutes } from './routes/social-interactions.js';
-import { registerNotificationRoutes } from './routes/notifications.js';
+// import { registerNotificationRoutes } from './routes/notifications.js'; // Legacy - replaced by push-notifications
 import { registerSpecialEventsRoutes } from './routes/special-events.js';
 import { registerProgressionRoutes } from './routes/progression.js';
+import { registerPushNotificationRoutes } from './routes/push-notifications.js';
 
 // Combine schemas for full database type support
 const schema = { ...appSchema, ...authSchema };
@@ -42,9 +43,10 @@ registerBoardManagementRoutes(app);
 registerMatchmakingRoutes(app);
 registerTurnManagementRoutes(app);
 registerSocialInteractionRoutes(app);
-registerNotificationRoutes(app);
+// registerNotificationRoutes(app); // Legacy - replaced by push-notifications
 registerSpecialEventsRoutes(app);
 registerProgressionRoutes(app);
+registerPushNotificationRoutes(app);
 
 await app.run();
 app.logger.info('VERBLOC backend running');

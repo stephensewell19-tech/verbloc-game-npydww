@@ -184,7 +184,46 @@ export const gameTaunts = pgTable('game_taunts', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Push notification tokens table
+// Notification tokens table (Expo Push Tokens)
+export const notificationTokens = pgTable('notification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  expoPushToken: text('expo_push_token').notNull().unique(),
+  platform: text('platform', { enum: ['ios', 'android'] }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('notification_tokens_user_id_idx').on(table.userId),
+]);
+
+// Notification preferences table
+export const notificationPreferences = pgTable('notification_preferences', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  multiplayerTurnReminders: boolean('multiplayer_turn_reminders').default(true).notNull(),
+  dailyChallengeAvailability: boolean('daily_challenge_availability').default(true).notNull(),
+  eventBoardStartEnd: boolean('event_board_start_end').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+});
+
+// Notification history table
+export const notificationHistory = pgTable('notification_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  notificationType: text('notification_type').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  data: jsonb('data'),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+  deliveryStatus: text('delivery_status', { enum: ['sent', 'failed', 'delivered'] }).notNull(),
+}, (table) => [
+  index('notification_history_user_id_idx').on(table.userId),
+  index('notification_history_sent_at_idx').on(table.sentAt),
+  index('notification_history_type_idx').on(table.notificationType),
+]);
+
+// Push notification tokens table (legacy - keeping for backwards compatibility)
 export const pushNotificationTokens = pgTable('push_notification_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
@@ -288,6 +327,27 @@ export const gameTauntsRelations = relations(gameTaunts, ({ one }) => ({
 export const pushNotificationTokensRelations = relations(pushNotificationTokens, ({ one }) => ({
   user: one(user, {
     fields: [pushNotificationTokens.userId],
+    references: [user.id],
+  }),
+}));
+
+export const notificationTokensRelations = relations(notificationTokens, ({ one }) => ({
+  user: one(user, {
+    fields: [notificationTokens.userId],
+    references: [user.id],
+  }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(user, {
+    fields: [notificationPreferences.userId],
+    references: [user.id],
+  }),
+}));
+
+export const notificationHistoryRelations = relations(notificationHistory, ({ one }) => ({
+  user: one(user, {
+    fields: [notificationHistory.userId],
     references: [user.id],
   }),
 }));
