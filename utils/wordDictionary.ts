@@ -1,132 +1,369 @@
 
 /**
- * Optimized word dictionary using Trie data structure
- * Provides O(m) lookup time where m is word length
- * Much faster than Set for large dictionaries
+ * Comprehensive English word dictionary for VERBLOC
+ * Contains common 3+ letter words for gameplay
+ * This is the single source of truth for word validation
  */
 
-class TrieNode {
-  children: Map<string, TrieNode>;
-  isEndOfWord: boolean;
+export const ALL_WORDS = new Set([
+  // 3-letter words (comprehensive)
+  'ACE', 'ACT', 'ADD', 'AGE', 'AGO', 'AID', 'AIM', 'AIR', 'ALL', 'AND',
+  'ANT', 'ANY', 'APE', 'ARC', 'ARE', 'ARK', 'ARM', 'ART', 'ASH', 'ASK',
+  'ATE', 'AWE', 'AXE', 'AYE', 'BAD', 'BAG', 'BAN', 'BAR', 'BAT', 'BAY',
+  'BED', 'BEE', 'BET', 'BIG', 'BIN', 'BIT', 'BOW', 'BOX', 'BOY', 'BUD',
+  'BUG', 'BUM', 'BUN', 'BUS', 'BUT', 'BUY', 'CAB', 'CAN', 'CAP', 'CAR',
+  'CAT', 'COB', 'COD', 'COG', 'COT', 'COW', 'COX', 'COY', 'CRY', 'CUB',
+  'CUD', 'CUE', 'CUP', 'CUR', 'CUT', 'DAB', 'DAD', 'DAM', 'DAY', 'DEN',
+  'DEW', 'DID', 'DIE', 'DIG', 'DIM', 'DIN', 'DIP', 'DOC', 'DOE', 'DOG',
+  'DOT', 'DRY', 'DUB', 'DUD', 'DUE', 'DUG', 'DYE', 'EAR', 'EAT', 'EEL',
+  'EGG', 'ELF', 'ELK', 'ELM', 'EMU', 'END', 'ERA', 'ERR', 'EVE', 'EWE',
+  'EYE', 'FAD', 'FAN', 'FAR', 'FAT', 'FAX', 'FED', 'FEE', 'FEW', 'FIG',
+  'FIN', 'FIR', 'FIT', 'FIX', 'FLU', 'FLY', 'FOB', 'FOE', 'FOG', 'FOR',
+  'FOX', 'FRY', 'FUN', 'FUR', 'GAB', 'GAG', 'GAL', 'GAP', 'GAS', 'GAY',
+  'GEL', 'GEM', 'GET', 'GIG', 'GIN', 'GNU', 'GOB', 'GOD', 'GOT', 'GUM',
+  'GUN', 'GUT', 'GUY', 'GYM', 'HAD', 'HAG', 'HAM', 'HAS', 'HAT', 'HAY',
+  'HEM', 'HEN', 'HER', 'HEW', 'HEX', 'HEY', 'HID', 'HIM', 'HIP', 'HIS',
+  'HIT', 'HOB', 'HOD', 'HOE', 'HOG', 'HOP', 'HOT', 'HOW', 'HUB', 'HUE',
+  'HUG', 'HUM', 'HUT', 'ICE', 'ICY', 'ILL', 'IMP', 'INK', 'INN', 'ION',
+  'IRE', 'IRK', 'ITS', 'IVY', 'JAB', 'JAG', 'JAM', 'JAR', 'JAW', 'JAY',
+  'JET', 'JIG', 'JOB', 'JOG', 'JOT', 'JOY', 'JUG', 'KEG', 'KEN', 'KEY',
+  'KID', 'KIN', 'KIT', 'LAB', 'LAC', 'LAD', 'LAG', 'LAP', 'LAW', 'LAX',
+  'LAY', 'LEA', 'LED', 'LEG', 'LET', 'LID', 'LIE', 'LIP', 'LIT', 'LOG',
+  'LOT', 'LOW', 'LUG', 'MAD', 'MAN', 'MAP', 'MAR', 'MAT', 'MAW', 'MAY',
+  'MEN', 'MET', 'MID', 'MIX', 'MOB', 'MOD', 'MOM', 'MOP', 'MOW', 'MUD',
+  'MUG', 'MUM', 'NAB', 'NAG', 'NAP', 'NAY', 'NET', 'NEW', 'NIL', 'NIT',
+  'NOB', 'NOD', 'NOR', 'NOT', 'NOW', 'NUB', 'NUN', 'NUT', 'OAK', 'OAR',
+  'OAT', 'ODD', 'ODE', 'OFF', 'OFT', 'OIL', 'OLD', 'ONE', 'OPT', 'ORB',
+  'ORE', 'OUR', 'OUT', 'OWE', 'OWL', 'OWN', 'PAD', 'PAL', 'PAN', 'PAP',
+  'PAR', 'PAT', 'PAW', 'PAY', 'PEA', 'PEG', 'PEN', 'PEP', 'PER', 'PET',
+  'PEW', 'PIE', 'PIG', 'PIN', 'PIT', 'PLY', 'POD', 'POP', 'POT', 'POW',
+  'PRY', 'PUB', 'PUG', 'PUN', 'PUP', 'PUS', 'PUT', 'RAG', 'RAM', 'RAN',
+  'RAP', 'RAT', 'RAW', 'RAY', 'RED', 'REF', 'REM', 'REP', 'REV', 'RIB',
+  'RID', 'RIG', 'RIM', 'RIP', 'ROB', 'ROD', 'ROE', 'ROT', 'ROW', 'RUB',
+  'RUG', 'RUM', 'RUN', 'RUT', 'RYE', 'SAC', 'SAD', 'SAG', 'SAP', 'SAT',
+  'SAW', 'SAX', 'SAY', 'SEA', 'SEE', 'SET', 'SEW', 'SEX', 'SHE', 'SHY',
+  'SIN', 'SIP', 'SIR', 'SIS', 'SIT', 'SIX', 'SKI', 'SKY', 'SLY', 'SOB',
+  'SOD', 'SON', 'SOP', 'SOT', 'SOW', 'SOX', 'SOY', 'SPA', 'SPY', 'STY',
+  'SUB', 'SUM', 'SUN', 'SUP', 'TAB', 'TAD', 'TAG', 'TAN', 'TAP', 'TAR',
+  'TAT', 'TAX', 'TEA', 'TEN', 'THE', 'THY', 'TIC', 'TIE', 'TIN', 'TIP',
+  'TOE', 'TON', 'TOO', 'TOP', 'TOT', 'TOW', 'TOY', 'TRY', 'TUB', 'TUG',
+  'TUN', 'TUT', 'TWO', 'URN', 'USE', 'VAN', 'VAT', 'VET', 'VIA', 'VIE',
+  'VOW', 'WAD', 'WAG', 'WAR', 'WAS', 'WAX', 'WAY', 'WEB', 'WED', 'WEE',
+  'WET', 'WHO', 'WHY', 'WIG', 'WIN', 'WIT', 'WOE', 'WOK', 'WON', 'WOO',
+  'WOW', 'YAK', 'YAM', 'YAP', 'YAW', 'YEA', 'YES', 'YET', 'YEW', 'YIN',
+  'YOU', 'YOW', 'ZAP', 'ZEN', 'ZIP', 'ZIT', 'ZOO',
   
-  constructor() {
-    this.children = new Map();
-    this.isEndOfWord = false;
-  }
-}
-
-class Trie {
-  private root: TrieNode;
+  // 4-letter words (comprehensive)
+  'ABLE', 'ACHE', 'ACID', 'ACNE', 'ACRE', 'AGED', 'AIDE', 'AJAR', 'AKIN',
+  'ALLY', 'ALSO', 'ALTO', 'AMEN', 'AMID', 'ANKH', 'ANTE', 'ANTI', 'ANTS',
+  'APEX', 'AQUA', 'ARCH', 'AREA', 'ARIA', 'ARID', 'ARMY', 'ARTS', 'ATOM',
+  'ATOP', 'AUNT', 'AUTO', 'AVID', 'AWAY', 'AXES', 'AXIS', 'AXLE', 'BABY',
+  'BACK', 'BADE', 'BAIL', 'BAIT', 'BAKE', 'BALD', 'BALE', 'BALL', 'BALM',
+  'BAND', 'BANE', 'BANG', 'BANK', 'BARE', 'BARK', 'BARN', 'BASE', 'BASH',
+  'BASK', 'BASS', 'BATH', 'BATS', 'BAWL', 'BAYS', 'BEAD', 'BEAK', 'BEAM',
+  'BEAN', 'BEAR', 'BEAT', 'BECK', 'BEDS', 'BEEF', 'BEEN', 'BEER', 'BEES',
+  'BEET', 'BELL', 'BELT', 'BEND', 'BENT', 'BERG', 'BEST', 'BETA', 'BIAS',
+  'BIDE', 'BIKE', 'BILE', 'BILK', 'BILL', 'BIND', 'BIRD', 'BITE', 'BITS',
+  'BLAH', 'BLED', 'BLEW', 'BLOB', 'BLOC', 'BLOG', 'BLOT', 'BLOW', 'BLUE',
+  'BLUR', 'BOAR', 'BOAT', 'BODE', 'BODY', 'BOGS', 'BOIL', 'BOLD', 'BOLT',
+  'BOMB', 'BOND', 'BONE', 'BOOK', 'BOOM', 'BOON', 'BOOR', 'BOOT', 'BORE',
+  'BORN', 'BOSS', 'BOTH', 'BOUT', 'BOWL', 'BOWS', 'BOYS', 'BRAG', 'BRAN',
+  'BRAT', 'BRAY', 'BRED', 'BREW', 'BRIG', 'BRIM', 'BROW', 'BUCK', 'BUDS',
+  'BUFF', 'BUGS', 'BULB', 'BULK', 'BULL', 'BUMP', 'BUMS', 'BUNK', 'BUNS',
+  'BUOY', 'BURN', 'BURP', 'BURR', 'BURY', 'BUSH', 'BUSK', 'BUST', 'BUSY',
+  'BUTT', 'BUZZ', 'BYTE', 'CABS', 'CAFE', 'CAGE', 'CAKE', 'CALF', 'CALL',
+  'CALM', 'CAME', 'CAMP', 'CANE', 'CANS', 'CAPE', 'CAPS', 'CARD', 'CARE',
+  'CARP', 'CARS', 'CART', 'CASE', 'CASH', 'CASK', 'CAST', 'CATS', 'CAVE',
+  'CEDE', 'CELL', 'CENT', 'CHAP', 'CHAR', 'CHAT', 'CHEF', 'CHEW', 'CHIC',
+  'CHIN', 'CHIP', 'CHIT', 'CHOP', 'CHOW', 'CHUM', 'CITE', 'CITY', 'CLAD',
+  'CLAM', 'CLAN', 'CLAP', 'CLAW', 'CLAY', 'CLEF', 'CLIP', 'CLOD', 'CLOG',
+  'CLOT', 'CLUB', 'CLUE', 'COAL', 'COAT', 'COAX', 'COBS', 'COCK', 'CODE',
+  'CODS', 'COIL', 'COIN', 'COKE', 'COLD', 'COLE', 'COLT', 'COMA', 'COMB',
+  'COME', 'CONE', 'CONK', 'COOK', 'COOL', 'COOP', 'COPE', 'COPS', 'COPY',
+  'CORD', 'CORE', 'CORK', 'CORN', 'COST', 'COSY', 'COTS', 'COUP', 'COVE',
+  'COWS', 'COZY', 'CRAB', 'CRAM', 'CRAW', 'CREW', 'CRIB', 'CROP', 'CROW',
+  'CRUX', 'CUBE', 'CUBS', 'CUFF', 'CULL', 'CULT', 'CUPS', 'CURB', 'CURD',
+  'CURE', 'CURL', 'CURS', 'CURT', 'CUSP', 'CUTE', 'CUTS', 'DABS', 'DADS',
+  'DAFT', 'DAIS', 'DALE', 'DAME', 'DAMN', 'DAMP', 'DAMS', 'DARE', 'DARK',
+  'DARN', 'DART', 'DASH', 'DATA', 'DATE', 'DAUB', 'DAWN', 'DAYS', 'DAZE',
+  'DEAD', 'DEAF', 'DEAL', 'DEAN', 'DEAR', 'DEBT', 'DECK', 'DEED', 'DEEM',
+  'DEEP', 'DEER', 'DEFY', 'DELI', 'DELL', 'DEMO', 'DENS', 'DENT', 'DENY',
+  'DESK', 'DEWS', 'DIAL', 'DICE', 'DIED', 'DIES', 'DIET', 'DIGS', 'DIKE',
+  'DILL', 'DIME', 'DIMS', 'DINE', 'DING', 'DINK', 'DINS', 'DINT', 'DIPS',
+  'DIRE', 'DIRK', 'DIRT', 'DISC', 'DISH', 'DISK', 'DIVA', 'DIVE', 'DOCK',
+  'DOCS', 'DODO', 'DOER', 'DOES', 'DOFF', 'DOGE', 'DOGS', 'DOLE', 'DOLL',
+  'DOLT', 'DOME', 'DONE', 'DOOM', 'DOOR', 'DOPE', 'DORK', 'DORM', 'DOSE',
+  'DOTE', 'DOTS', 'DOUR', 'DOVE', 'DOWN', 'DOZE', 'DRAB', 'DRAG', 'DRAM',
+  'DRAT', 'DRAW', 'DRAY', 'DREW', 'DRIP', 'DROP', 'DRUB', 'DRUG', 'DRUM',
+  'DUAL', 'DUBS', 'DUCK', 'DUCT', 'DUDE', 'DUDS', 'DUEL', 'DUES', 'DUET',
+  'DUFF', 'DUKE', 'DULL', 'DULY', 'DUMB', 'DUMP', 'DUNE', 'DUNG', 'DUNK',
+  'DUPE', 'DUSK', 'DUST', 'DUTY', 'DYED', 'DYER', 'DYES', 'EACH', 'EARL',
+  'EARN', 'EARS', 'EASE', 'EAST', 'EASY', 'EATS', 'EAVE', 'EBBS', 'ECHO',
+  'EDDY', 'EDGE', 'EDGY', 'EDIT', 'EELS', 'EGGS', 'EGOS', 'EKED', 'EKES',
+  'ELKS', 'ELMS', 'ELSE', 'EMUS', 'ENDS', 'ENVY', 'EPIC', 'ERAS', 'ERGO',
+  'ERRS', 'EVEN', 'EVER', 'EVES', 'EVIL', 'EWER', 'EWES', 'EXAM', 'EXIT',
+  'EXPO', 'EYED', 'EYES', 'FACE', 'FACT', 'FADE', 'FADS', 'FAIL', 'FAIN',
+  'FAIR', 'FAKE', 'FALL', 'FAME', 'FANG', 'FANS', 'FARE', 'FARM', 'FAST',
+  'FATE', 'FATS', 'FAUN', 'FAWN', 'FAZE', 'FEAR', 'FEAT', 'FEED', 'FEEL',
+  'FEES', 'FEET', 'FELL', 'FELT', 'FEND', 'FERN', 'FEST', 'FEUD', 'FIAT',
+  'FIBS', 'FIEF', 'FIFE', 'FIGS', 'FILE', 'FILL', 'FILM', 'FIND', 'FINE',
+  'FINK', 'FINS', 'FIRE', 'FIRM', 'FIRS', 'FISH', 'FIST', 'FITS', 'FIVE',
+  'FLAG', 'FLAK', 'FLAM', 'FLAN', 'FLAP', 'FLAT', 'FLAW', 'FLAX', 'FLAY',
+  'FLEA', 'FLED', 'FLEE', 'FLEW', 'FLEX', 'FLIP', 'FLIT', 'FLOE', 'FLOG',
+  'FLOP', 'FLOW', 'FLUB', 'FLUE', 'FLUX', 'FOAL', 'FOAM', 'FOBS', 'FOCI',
+  'FOES', 'FOGS', 'FOIL', 'FOLD', 'FOLK', 'FOND', 'FONT', 'FOOD', 'FOOL',
+  'FOOT', 'FORD', 'FORE', 'FORK', 'FORM', 'FORT', 'FOUL', 'FOUR', 'FOWL',
+  'FOXY', 'FRAY', 'FREE', 'FRET', 'FROG', 'FROM', 'FUEL', 'FULL', 'FUME',
+  'FUND', 'FUNK', 'FURL', 'FURY', 'FUSE', 'FUSS', 'FUZZ', 'GABS', 'GAGS',
+  'GAIN', 'GAIT', 'GALA', 'GALE', 'GALL', 'GALS', 'GAME', 'GAMY', 'GANG',
+  'GAPS', 'GARB', 'GASH', 'GASP', 'GATE', 'GAVE', 'GAWK', 'GAZE', 'GEAR',
+  'GEEK', 'GELS', 'GEMS', 'GENE', 'GENT', 'GERM', 'GETS', 'GIFT', 'GIGS',
+  'GILD', 'GILL', 'GILT', 'GINS', 'GIRD', 'GIRL', 'GIST', 'GIVE', 'GLAD',
+  'GLEN', 'GLIB', 'GLOB', 'GLOM', 'GLOW', 'GLUE', 'GLUM', 'GLUT', 'GNAT',
+  'GNAW', 'GNUS', 'GOAD', 'GOAL', 'GOAT', 'GOBS', 'GODS', 'GOES', 'GOLD',
+  'GOLF', 'GONE', 'GONG', 'GOOD', 'GOOF', 'GORE', 'GORY', 'GOSH', 'GOUT',
+  'GOWN', 'GRAB', 'GRAD', 'GRAM', 'GRAY', 'GREW', 'GREY', 'GRID', 'GRIM',
+  'GRIN', 'GRIP', 'GRIT', 'GROG', 'GROW', 'GRUB', 'GULF', 'GULL', 'GULP',
+  'GUMS', 'GUNK', 'GUNS', 'GURU', 'GUSH', 'GUST', 'GUTS', 'GUYS', 'GYMS',
+  'HACK', 'HAGS', 'HAIL', 'HAIR', 'HALE', 'HALF', 'HALL', 'HALO', 'HALT',
+  'HAMS', 'HAND', 'HANG', 'HANK', 'HARD', 'HARE', 'HARK', 'HARM', 'HARP',
+  'HART', 'HASH', 'HASP', 'HATE', 'HATS', 'HAUL', 'HAVE', 'HAWK', 'HAZE',
+  'HAZY', 'HEAD', 'HEAL', 'HEAP', 'HEAR', 'HEAT', 'HECK', 'HEED', 'HEEL',
+  'HEFT', 'HEIR', 'HELD', 'HELL', 'HELM', 'HELP', 'HEMS', 'HENS', 'HERB',
+  'HERD', 'HERE', 'HERO', 'HERS', 'HEWN', 'HEWS', 'HICK', 'HIDE', 'HIGH',
+  'HIKE', 'HILL', 'HILT', 'HIND', 'HINT', 'HIPS', 'HIRE', 'HISS', 'HITS',
+  'HIVE', 'HOAX', 'HOBS', 'HOCK', 'HODS', 'HOED', 'HOES', 'HOGS', 'HOLD',
+  'HOLE', 'HOLY', 'HOME', 'HONE', 'HONK', 'HOOD', 'HOOF', 'HOOK', 'HOOP',
+  'HOOT', 'HOPE', 'HOPS', 'HORN', 'HOSE', 'HOST', 'HOUR', 'HOVE', 'HOWL',
+  'HUBS', 'HUED', 'HUES', 'HUFF', 'HUGE', 'HUGS', 'HULK', 'HULL', 'HUMS',
+  'HUNG', 'HUNK', 'HUNT', 'HURL', 'HURT', 'HUSH', 'HUSK', 'HUTS', 'HYMN',
+  'HYPE', 'IBEX', 'IBIS', 'ICED', 'ICES', 'ICON', 'IDEA', 'IDEM', 'IDES',
+  'IDLE', 'IDOL', 'IFFY', 'ILLS', 'IMPS', 'INCH', 'INFO', 'INKS', 'INKY',
+  'INNS', 'INTO', 'IONS', 'IOTA', 'IRIS', 'IRKS', 'IRON', 'ISLE', 'ITCH',
+  'ITEM', 'JABS', 'JACK', 'JADE', 'JAGS', 'JAIL', 'JAMS', 'JARS', 'JAWS',
+  'JAYS', 'JAZZ', 'JEAN', 'JEEP', 'JEER', 'JELL', 'JERK', 'JEST', 'JETS',
+  'JIBE', 'JIGS', 'JILT', 'JIVE', 'JOBS', 'JOCK', 'JOGS', 'JOIN', 'JOKE',
+  'JOLT', 'JOTS', 'JOWL', 'JOYS', 'JUDO', 'JUGS', 'JUMP', 'JUNE', 'JUNK',
+  'JURY', 'JUST', 'JUTE', 'KALE', 'KEEL', 'KEEN', 'KEEP', 'KEGS', 'KELP',
+  'KENS', 'KEPT', 'KEYS', 'KICK', 'KIDS', 'KILL', 'KILN', 'KILO', 'KILT',
+  'KIND', 'KING', 'KINK', 'KISS', 'KITE', 'KITS', 'KIWI', 'KNEE', 'KNEW',
+  'KNIT', 'KNOB', 'KNOT', 'KNOW', 'LABS', 'LACE', 'LACK', 'LACY', 'LADS',
+  'LADY', 'LAGS', 'LAID', 'LAIN', 'LAIR', 'LAKE', 'LAMB', 'LAME', 'LAMP',
+  'LAND', 'LANE', 'LANK', 'LAPS', 'LARD', 'LARK', 'LASH', 'LASS', 'LAST',
+  'LATE', 'LAUD', 'LAVA', 'LAWN', 'LAWS', 'LAYS', 'LAZE', 'LAZY', 'LEAD',
+  'LEAF', 'LEAK', 'LEAN', 'LEAP', 'LEAS', 'LEFT', 'LEGS', 'LEND', 'LENS',
+  'LENT', 'LESS', 'LEST', 'LETS', 'LEVY', 'LEWD', 'LIAR', 'LICE', 'LICK',
+  'LIDS', 'LIED', 'LIEN', 'LIES', 'LIEU', 'LIFE', 'LIFT', 'LIKE', 'LILT',
+  'LILY', 'LIMB', 'LIME', 'LIMP', 'LINE', 'LINK', 'LINT', 'LION', 'LIPS',
+  'LISP', 'LIST', 'LITE', 'LIVE', 'LOAD', 'LOAF', 'LOAM', 'LOAN', 'LOBE',
+  'LOBS', 'LOCH', 'LOCK', 'LOCO', 'LODE', 'LOFT', 'LOGE', 'LOGO', 'LOGS',
+  'LOIN', 'LONE', 'LONG', 'LOOK', 'LOOM', 'LOON', 'LOOP', 'LOOT', 'LOPE',
+  'LORD', 'LORE', 'LORN', 'LOSE', 'LOSS', 'LOST', 'LOTS', 'LOUD', 'LOUT',
+  'LOVE', 'LOWS', 'LUCK', 'LUGE', 'LUGS', 'LULL', 'LUMP', 'LUNG', 'LURE',
+  'LURK', 'LUSH', 'LUST', 'LUTE', 'LYNX', 'LYRE', 'MACE', 'MADE', 'MADS',
+  'MAGI', 'MAID', 'MAIL', 'MAIM', 'MAIN', 'MAKE', 'MALE', 'MALL', 'MALT',
+  'MAMA', 'MANE', 'MANS', 'MANY', 'MAPS', 'MARE', 'MARK', 'MARS', 'MART',
+  'MASH', 'MASK', 'MASS', 'MAST', 'MATE', 'MATH', 'MATS', 'MAUL', 'MAWS',
+  'MAZE', 'MEAD', 'MEAL', 'MEAN', 'MEAT', 'MEEK', 'MEET', 'MELD', 'MELT',
+  'MEMO', 'MEND', 'MENU', 'MEOW', 'MERE', 'MESH', 'MESS', 'MICA', 'MICE',
+  'MIDI', 'MIEN', 'MILD', 'MILE', 'MILK', 'MILL', 'MIME', 'MIND', 'MINE',
+  'MINI', 'MINK', 'MINT', 'MINX', 'MIRE', 'MISS', 'MIST', 'MITE', 'MITT',
+  'MOAN', 'MOAT', 'MOBS', 'MOCK', 'MODE', 'MODS', 'MOLD', 'MOLE', 'MOLT',
+  'MOMS', 'MONK', 'MONO', 'MOOD', 'MOON', 'MOOR', 'MOOT', 'MOPE', 'MOPS',
+  'MORE', 'MORN', 'MOSS', 'MOST', 'MOTH', 'MOVE', 'MOWS', 'MUCH', 'MUCK',
+  'MUDS', 'MUFF', 'MUGS', 'MULE', 'MULL', 'MUMS', 'MUNG', 'MUNK', 'MURK',
+  'MUSE', 'MUSH', 'MUSK', 'MUST', 'MUTE', 'MUTT', 'MYTH', 'NABS', 'NAGS',
+  'NAIL', 'NAME', 'NAPE', 'NAPS', 'NARY', 'NAVY', 'NAYS', 'NEAR', 'NEAT',
+  'NECK', 'NEED', 'NEON', 'NERD', 'NEST', 'NETS', 'NEWS', 'NEWT', 'NEXT',
+  'NIBS', 'NICE', 'NICK', 'NIGH', 'NINE', 'NIPS', 'NITS', 'NOBS', 'NODE',
+  'NODS', 'NOEL', 'NONE', 'NOOK', 'NOON', 'NOPE', 'NORM', 'NOSE', 'NOSY',
+  'NOTE', 'NOUN', 'NOVA', 'NUBS', 'NUDE', 'NULL', 'NUMB', 'NUNS', 'NUTS',
+  'OAFS', 'OAKS', 'OARS', 'OAST', 'OATH', 'OATS', 'OBEY', 'OBOE', 'ODDS',
+  'ODES', 'ODOR', 'OFFS', 'OGLE', 'OGRE', 'OHED', 'OHMS', 'OILS', 'OILY',
+  'OINK', 'OKAY', 'OKRA', 'OLDS', 'OMEN', 'OMIT', 'ONCE', 'ONES', 'ONLY',
+  'ONTO', 'ONUS', 'OOZE', 'OOZY', 'OPAL', 'OPEN', 'OPTS', 'OPUS', 'ORAL',
+  'ORBS', 'ORCA', 'ORES', 'ORGY', 'OTIC', 'OUCH', 'OURS', 'OUST', 'OUTS',
+  'OVAL', 'OVEN', 'OVER', 'OWED', 'OWES', 'OWLS', 'OWNS', 'OXEN', 'PACE',
+  'PACK', 'PACT', 'PADS', 'PAGE', 'PAID', 'PAIL', 'PAIN', 'PAIR', 'PALE',
+  'PALL', 'PALM', 'PALS', 'PANE', 'PANG', 'PANS', 'PANT', 'PAPA', 'PAPS',
+  'PARE', 'PARK', 'PART', 'PASS', 'PAST', 'PATE', 'PATH', 'PATS', 'PAVE',
+  'PAWN', 'PAWS', 'PAYS', 'PEAK', 'PEAL', 'PEAR', 'PEAS', 'PEAT', 'PECK',
+  'PEEL', 'PEEP', 'PEER', 'PEGS', 'PELT', 'PENS', 'PENT', 'PEON', 'PEPS',
+  'PERK', 'PERM', 'PERT', 'PEST', 'PETS', 'PEWS', 'PICK', 'PIED', 'PIER',
+  'PIES', 'PIGS', 'PIKE', 'PILE', 'PILL', 'PIMP', 'PINE', 'PING', 'PINK',
+  'PINS', 'PINT', 'PINY', 'PIPE', 'PIPS', 'PISS', 'PITA', 'PITH', 'PITS',
+  'PITY', 'PLAN', 'PLAY', 'PLEA', 'PLED', 'PLOD', 'PLOP', 'PLOT', 'PLOW',
+  'PLOY', 'PLUG', 'PLUM', 'PLUS', 'POCK', 'PODS', 'POEM', 'POET', 'POKE',
+  'POLE', 'POLL', 'POLO', 'POMP', 'POND', 'PONY', 'POOH', 'POOL', 'POOP',
+  'POOR', 'POPE', 'POPS', 'PORE', 'PORK', 'PORN', 'PORT', 'POSE', 'POSH',
+  'POST', 'POSY', 'POTS', 'POUR', 'POUT', 'PRAM', 'PRAY', 'PREP', 'PREY',
+  'PRIG', 'PRIM', 'PROD', 'PROM', 'PROP', 'PROS', 'PROW', 'PRUDE', 'PRUNE',
+  'PUBS', 'PUCK', 'PUFF', 'PUGS', 'PUKE', 'PULL', 'PULP', 'PUMA', 'PUMP',
+  'PUNK', 'PUNS', 'PUNY', 'PUPA', 'PUPS', 'PURE', 'PURL', 'PURR', 'PUSH',
+  'PUSS', 'PUTS', 'PUTT', 'QUAD', 'QUAY', 'QUID', 'QUIP', 'QUIT', 'QUIZ',
+  'RACE', 'RACK', 'RACY', 'RAFT', 'RAGE', 'RAGS', 'RAID', 'RAIL', 'RAIN',
+  'RAKE', 'RAMP', 'RAMS', 'RANG', 'RANK', 'RANT', 'RAPE', 'RAPS', 'RAPT',
+  'RARE', 'RASH', 'RASP', 'RATE', 'RATS', 'RAVE', 'RAYS', 'RAZE', 'READ',
+  'REAL', 'REAM', 'REAP', 'REAR', 'REDS', 'REED', 'REEF', 'REEK', 'REEL',
+  'REFS', 'REIN', 'RELY', 'REND', 'RENT', 'REPS', 'REST', 'REVS', 'RIBS',
+  'RICE', 'RICH', 'RIDE', 'RIDS', 'RIFE', 'RIFT', 'RIGS', 'RILE', 'RILL',
+  'RIME', 'RIMS', 'RIND', 'RING', 'RINK', 'RIOT', 'RIPE', 'RIPS', 'RISE',
+  'RISK', 'RITE', 'ROAD', 'ROAM', 'ROAR', 'ROBE', 'ROBS', 'ROCK', 'RODE',
+  'RODS', 'ROES', 'ROIL', 'ROLE', 'ROLL', 'ROMP', 'ROOD', 'ROOF', 'ROOK',
+  'ROOM', 'ROOT', 'ROPE', 'ROPY', 'ROSE', 'ROSY', 'ROTE', 'ROTS', 'ROUT',
+  'ROVE', 'ROWS', 'RUBE', 'RUBS', 'RUBY', 'RUCK', 'RUDE', 'RUED', 'RUES',
+  'RUFF', 'RUGS', 'RUIN', 'RULE', 'RUMP', 'RUMS', 'RUNG', 'RUNS', 'RUNT',
+  'RUSE', 'RUSH', 'RUST', 'RUTS', 'RYES', 'SACK', 'SACS', 'SAFE', 'SAGA',
+  'SAGE', 'SAGO', 'SAGS', 'SAID', 'SAIL', 'SAKE', 'SALE', 'SALT', 'SAME',
+  'SAND', 'SANE', 'SANG', 'SANK', 'SAPS', 'SARI', 'SASH', 'SASS', 'SATE',
+  'SAVE', 'SAWN', 'SAWS', 'SAYS', 'SCAB', 'SCAD', 'SCAM', 'SCAN', 'SCAR',
+  'SCAT', 'SCOW', 'SEAL', 'SEAM', 'SEAR', 'SEAS', 'SEAT', 'SECT', 'SEED',
+  'SEEK', 'SEEM', 'SEEN', 'SEEP', 'SEER', 'SEES', 'SELF', 'SELL', 'SEMI',
+  'SEND', 'SENT', 'SEPT', 'SERF', 'SETS', 'SEWN', 'SEWS', 'SEXY', 'SHAD',
+  'SHAG', 'SHAH', 'SHAM', 'SHED', 'SHIM', 'SHIN', 'SHIP', 'SHIV', 'SHOD',
+  'SHOE', 'SHOO', 'SHOP', 'SHOT', 'SHOW', 'SHUN', 'SHUT', 'SICK', 'SIDE',
+  'SIFT', 'SIGH', 'SIGN', 'SILK', 'SILL', 'SILO', 'SILT', 'SINE', 'SING',
+  'SINK', 'SINS', 'SIPS', 'SIRE', 'SIRS', 'SITE', 'SITS', 'SIZE', 'SKEW',
+  'SKID', 'SKIM', 'SKIN', 'SKIP', 'SKIS', 'SKIT', 'SLAB', 'SLAG', 'SLAM',
+  'SLAP', 'SLAT', 'SLAW', 'SLAY', 'SLED', 'SLEW', 'SLID', 'SLIM', 'SLIP',
+  'SLIT', 'SLOB', 'SLOE', 'SLOG', 'SLOP', 'SLOT', 'SLOW', 'SLUE', 'SLUG',
+  'SLUM', 'SLUR', 'SMOG', 'SMUG', 'SNAG', 'SNAP', 'SNIP', 'SNIT', 'SNOB',
+  'SNOT', 'SNOW', 'SNUB', 'SNUG', 'SOAK', 'SOAP', 'SOAR', 'SOBS', 'SOCK',
+  'SODA', 'SODS', 'SOFA', 'SOFT', 'SOIL', 'SOLD', 'SOLE', 'SOLO', 'SOME',
+  'SONG', 'SONS', 'SOON', 'SOOT', 'SOPS', 'SORE', 'SORT', 'SOUL', 'SOUP',
+  'SOUR', 'SOWN', 'SOWS', 'SOYA', 'SOYS', 'SPAM', 'SPAN', 'SPAR', 'SPAS',
+  'SPAT', 'SPAY', 'SPEC', 'SPED', 'SPEW', 'SPIN', 'SPIT', 'SPOT', 'SPRY',
+  'SPUD', 'SPUN', 'SPUR', 'STAB', 'STAG', 'STAR', 'STAT', 'STAY', 'STEM',
+  'STEP', 'STEW', 'STIR', 'STOP', 'STOW', 'STUB', 'STUD', 'STUN', 'STYE',
+  'SUBS', 'SUCH', 'SUCK', 'SUDS', 'SUED', 'SUES', 'SUIT', 'SULK', 'SUMO',
+  'SUMP', 'SUMS', 'SUNG', 'SUNK', 'SUNS', 'SUPS', 'SURE', 'SURF', 'SWAB',
+  'SWAG', 'SWAM', 'SWAN', 'SWAP', 'SWAT', 'SWAY', 'SWIM', 'SWUM', 'TABS',
+  'TACK', 'TACO', 'TACT', 'TADS', 'TAGS', 'TAIL', 'TAKE', 'TALE', 'TALK',
+  'TALL', 'TAME', 'TAMP', 'TAMS', 'TANG', 'TANK', 'TANS', 'TAPE', 'TAPS',
+  'TARE', 'TARN', 'TARP', 'TARS', 'TART', 'TASK', 'TAUT', 'TAWNY', 'TAXI',
+  'TEAK', 'TEAL', 'TEAM', 'TEAR', 'TEAS', 'TEAT', 'TECH', 'TEED', 'TEEM',
+  'TEEN', 'TEES', 'TELL', 'TEMP', 'TEND', 'TENS', 'TENT', 'TERM', 'TERN',
+  'TEST', 'TEXT', 'THAN', 'THAT', 'THAW', 'THEE', 'THEM', 'THEN', 'THEW',
+  'THEY', 'THIN', 'THIS', 'THOU', 'THUD', 'THUG', 'THUS', 'TICK', 'TIDE',
+  'TIDY', 'TIED', 'TIER', 'TIES', 'TIFF', 'TIFT', 'TILE', 'TILL', 'TILT',
+  'TIME', 'TINE', 'TING', 'TINS', 'TINT', 'TINY', 'TIPS', 'TIRE', 'TOAD',
+  'TOCK', 'TOED', 'TOES', 'TOFF', 'TOFU', 'TOGA', 'TOGS', 'TOIL', 'TOLD',
+  'TOLL', 'TOMB', 'TOME', 'TONE', 'TONG', 'TONS', 'TOOK', 'TOOL', 'TOOT',
+  'TOPS', 'TORE', 'TORN', 'TORT', 'TOSS', 'TOTE', 'TOTS', 'TOUR', 'TOUT',
+  'TOWN', 'TOWS', 'TOYS', 'TRAM', 'TRAP', 'TRAY', 'TREE', 'TREK', 'TRIM',
+  'TRIO', 'TRIP', 'TROD', 'TROT', 'TROW', 'TRUE', 'TSAR', 'TUBA', 'TUBE',
+  'TUBS', 'TUCK', 'TUFT', 'TUGS', 'TUNA', 'TUNE', 'TUNG', 'TUNS', 'TURD',
+  'TURF', 'TURN', 'TUSK', 'TUTU', 'TWIG', 'TWIN', 'TWIT', 'TWOS', 'TYPE',
+  'TYPO', 'TYRE', 'TZAR', 'UGLY', 'UNDO', 'UNIT', 'UNTO', 'UPON', 'UREA',
+  'URGE', 'URNS', 'USED', 'USER', 'USES', 'VAIN', 'VALE', 'VAMP', 'VANE',
+  'VANS', 'VARY', 'VASE', 'VAST', 'VATS', 'VEAL', 'VEER', 'VEIL', 'VEIN',
+  'VEND', 'VENT', 'VERB', 'VERY', 'VEST', 'VETO', 'VETS', 'VIAL', 'VICE',
+  'VIED', 'VIES', 'VIEW', 'VILE', 'VINE', 'VINO', 'VIOL', 'VISE', 'VOID',
+  'VOLT', 'VOTE', 'VOWS', 'WADE', 'WADS', 'WAFT', 'WAGE', 'WAGS', 'WAIL',
+  'WAIT', 'WAKE', 'WALK', 'WALL', 'WAND', 'WANE', 'WANT', 'WARD', 'WARE',
+  'WARM', 'WARN', 'WARP', 'WARS', 'WART', 'WARY', 'WASH', 'WASP', 'WATT',
+  'WAVE', 'WAVY', 'WAXY', 'WAYS', 'WEAK', 'WEAL', 'WEAN', 'WEAR', 'WEBS',
+  'WEDS', 'WEED', 'WEEK', 'WEEP', 'WEFT', 'WEIR', 'WELD', 'WELL', 'WELT',
+  'WENT', 'WEPT', 'WERE', 'WEST', 'WETS', 'WHAM', 'WHAT', 'WHEN', 'WHET',
+  'WHEY', 'WHIM', 'WHIP', 'WHIR', 'WHIT', 'WHIZ', 'WHOM', 'WICK', 'WIDE',
+  'WIFE', 'WIGS', 'WILD', 'WILE', 'WILL', 'WILT', 'WILY', 'WIMP', 'WIND',
+  'WINE', 'WING', 'WINK', 'WINS', 'WIPE', 'WIRE', 'WIRY', 'WISE', 'WISH',
+  'WISP', 'WITH', 'WITS', 'WOES', 'WOKE', 'WOKS', 'WOLF', 'WOMB', 'WONT',
+  'WOOD', 'WOOF', 'WOOL', 'WORD', 'WORE', 'WORK', 'WORM', 'WORN', 'WORT',
+  'WOVE', 'WRAP', 'WREN', 'WRIT', 'YAKS', 'YAMS', 'YANG', 'YANK', 'YAPS',
+  'YARD', 'YARN', 'YAWN', 'YAWS', 'YEAH', 'YEAR', 'YEAS', 'YELL', 'YELP',
+  'YENS', 'YEPS', 'YETI', 'YEWS', 'YIDS', 'YINS', 'YIPS', 'YOKE', 'YOLK',
+  'YORE', 'YOUR', 'YOWL', 'YOWS', 'YUAN', 'YUCK', 'YULE', 'YURT', 'ZANY',
+  'ZAPS', 'ZEAL', 'ZEBU', 'ZEDS', 'ZENS', 'ZERO', 'ZEST', 'ZETA', 'ZINC',
+  'ZING', 'ZIPS', 'ZITS', 'ZONE', 'ZONK', 'ZOOM', 'ZOOS', 'ZULU',
   
-  constructor() {
-    this.root = new TrieNode();
-  }
-  
-  insert(word: string): void {
-    let node = this.root;
-    
-    for (const char of word.toUpperCase()) {
-      if (!node.children.has(char)) {
-        node.children.set(char, new TrieNode());
-      }
-      node = node.children.get(char)!;
-    }
-    
-    node.isEndOfWord = true;
-  }
-  
-  search(word: string): boolean {
-    let node = this.root;
-    
-    for (const char of word.toUpperCase()) {
-      if (!node.children.has(char)) {
-        return false;
-      }
-      node = node.children.get(char)!;
-    }
-    
-    return node.isEndOfWord;
-  }
-  
-  startsWith(prefix: string): boolean {
-    let node = this.root;
-    
-    for (const char of prefix.toUpperCase()) {
-      if (!node.children.has(char)) {
-        return false;
-      }
-      node = node.children.get(char)!;
-    }
-    
-    return true;
-  }
-}
-
-// Initialize dictionary (lazy loaded)
-let dictionaryTrie: Trie | null = null;
-
-function initializeDictionary(): Trie {
-  if (dictionaryTrie) {
-    return dictionaryTrie;
-  }
-  
-  console.log('[Dictionary] Initializing word dictionary...');
-  const startTime = performance.now();
-  
-  dictionaryTrie = new Trie();
-  
-  // Import words from wordMechanics
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { validateWord } = require('./wordMechanics');
-  
-  // Add common words (this is a subset - full dictionary would be loaded from file)
-  const commonWords = [
-    'CAT', 'DOG', 'BAT', 'RAT', 'HAT', 'MAT', 'SAT', 'FAT', 'PAT', 'VAT',
-    'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER',
-    'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW',
-    'BOX', 'WORD', 'GAME', 'PLAY', 'WIN', 'LOSE', 'SCORE', 'TILE', 'BOARD',
-    // ... (full list would be much longer)
-  ];
-  
-  commonWords.forEach(word => dictionaryTrie!.insert(word));
-  
-  const endTime = performance.now();
-  console.log(`[Dictionary] Initialized in ${(endTime - startTime).toFixed(2)}ms`);
-  
-  return dictionaryTrie;
-}
+  // 5+ letter words (common gameplay words)
+  'ABOUT', 'ABOVE', 'ABUSE', 'ACTOR', 'ACUTE', 'ADMIT', 'ADOPT', 'ADULT',
+  'AFTER', 'AGAIN', 'AGENT', 'AGREE', 'AHEAD', 'ALARM', 'ALBUM', 'ALERT',
+  'ALIEN', 'ALIGN', 'ALIKE', 'ALIVE', 'ALLOW', 'ALONE', 'ALONG', 'ALTER',
+  'ANGEL', 'ANGER', 'ANGLE', 'ANGRY', 'APART', 'APPLE', 'APPLY', 'ARENA',
+  'ARGUE', 'ARISE', 'ARRAY', 'ARROW', 'ASIDE', 'ASSET', 'AUDIO', 'AVOID',
+  'AWAKE', 'AWARD', 'AWARE', 'BADLY', 'BAKER', 'BASES', 'BASIC', 'BASIN',
+  'BASIS', 'BEACH', 'BEGAN', 'BEGIN', 'BEGUN', 'BEING', 'BELOW', 'BENCH',
+  'BILLY', 'BIRTH', 'BLACK', 'BLADE', 'BLAME', 'BLANK', 'BLAST', 'BLEED',
+  'BLESS', 'BLIND', 'BLOCK', 'BLOOD', 'BLOOM', 'BLOWN', 'BLUES', 'BOARD',
+  'BOOST', 'BOOTH', 'BOUND', 'BOXES', 'BRAIN', 'BRAND', 'BRASS', 'BRAVE',
+  'BREAD', 'BREAK', 'BREED', 'BRIEF', 'BRING', 'BROAD', 'BROKE', 'BROWN',
+  'BUILD', 'BUILT', 'BUNCH', 'BURNS', 'BURST', 'BUYER', 'CABLE', 'CALIF',
+  'CARRY', 'CATCH', 'CAUSE', 'CHAIN', 'CHAIR', 'CHAOS', 'CHARM', 'CHART',
+  'CHASE', 'CHEAP', 'CHECK', 'CHEEK', 'CHEER', 'CHESS', 'CHEST', 'CHIEF',
+  'CHILD', 'CHINA', 'CHOSE', 'CIVIL', 'CLAIM', 'CLASS', 'CLEAN', 'CLEAR',
+  'CLICK', 'CLIFF', 'CLIMB', 'CLOCK', 'CLOSE', 'CLOTH', 'CLOUD', 'COACH',
+  'COAST', 'COULD', 'COUNT', 'COURT', 'COVER', 'CRACK', 'CRAFT', 'CRASH',
+  'CRAZY', 'CREAM', 'CRIME', 'CROSS', 'CROWD', 'CROWN', 'CRUDE', 'CURVE',
+  'CYCLE', 'DAILY', 'DANCE', 'DATED', 'DEALT', 'DEATH', 'DEBUT', 'DELAY',
+  'DEPTH', 'DOING', 'DOUBT', 'DOZEN', 'DRAFT', 'DRAMA', 'DRANK', 'DRAWN',
+  'DREAM', 'DRESS', 'DRILL', 'DRINK', 'DRIVE', 'DROVE', 'DYING', 'EAGER',
+  'EARLY', 'EARTH', 'EIGHT', 'ELECT', 'ELITE', 'EMPTY', 'ENEMY', 'ENJOY',
+  'ENTER', 'ENTRY', 'EQUAL', 'ERROR', 'EVENT', 'EVERY', 'EXACT', 'EXIST',
+  'EXTRA', 'FAITH', 'FALSE', 'FAULT', 'FIBER', 'FIELD', 'FIFTH', 'FIFTY',
+  'FIGHT', 'FINAL', 'FIRST', 'FIXED', 'FLASH', 'FLEET', 'FLESH', 'FLOAT',
+  'FLOOD', 'FLOOR', 'FLUID', 'FOCUS', 'FORCE', 'FORTH', 'FORTY', 'FORUM',
+  'FOUND', 'FRAME', 'FRANK', 'FRAUD', 'FRESH', 'FRONT', 'FRUIT', 'FULLY',
+  'FUNNY', 'GIANT', 'GIVEN', 'GLASS', 'GLOBE', 'GOING', 'GRACE', 'GRADE',
+  'GRAIN', 'GRAND', 'GRANT', 'GRASS', 'GRAVE', 'GREAT', 'GREEN', 'GROSS',
+  'GROUP', 'GROWN', 'GUARD', 'GUESS', 'GUEST', 'GUIDE', 'HAPPY', 'HARRY',
+  'HEART', 'HEAVY', 'HENCE', 'HENRY', 'HORSE', 'HOTEL', 'HOUSE', 'HUMAN',
+  'IDEAL', 'IMAGE', 'INDEX', 'INNER', 'INPUT', 'ISSUE', 'JAPAN', 'JIMMY',
+  'JOINT', 'JONES', 'JUDGE', 'KNOWN', 'LABEL', 'LARGE', 'LASER', 'LATER',
+  'LAUGH', 'LAYER', 'LEARN', 'LEASE', 'LEAST', 'LEAVE', 'LEGAL', 'LEMON',
+  'LEVEL', 'LEWIS', 'LIGHT', 'LIMIT', 'LINKS', 'LIVES', 'LOCAL', 'LOGIC',
+  'LOOSE', 'LOWER', 'LUCKY', 'LUNCH', 'LYING', 'MAGIC', 'MAJOR', 'MAKER',
+  'MARCH', 'MARIA', 'MATCH', 'MAYBE', 'MAYOR', 'MEANT', 'MEDIA', 'METAL',
+  'MIGHT', 'MINOR', 'MINUS', 'MIXED', 'MODEL', 'MONEY', 'MONTH', 'MORAL',
+  'MOTOR', 'MOUNT', 'MOUSE', 'MOUTH', 'MOVED', 'MOVIE', 'MUSIC', 'NEEDS',
+  'NEVER', 'NEWLY', 'NIGHT', 'NOISE', 'NORTH', 'NOTED', 'NOVEL', 'NURSE',
+  'OCCUR', 'OCEAN', 'OFFER', 'OFTEN', 'ORDER', 'OTHER', 'OUGHT', 'PAINT',
+  'PANEL', 'PAPER', 'PARTY', 'PEACE', 'PETER', 'PHASE', 'PHONE', 'PHOTO',
+  'PIECE', 'PILOT', 'PITCH', 'PLACE', 'PLAIN', 'PLANE', 'PLANT', 'PLATE',
+  'POINT', 'POUND', 'POWER', 'PRESS', 'PRICE', 'PRIDE', 'PRIME', 'PRINT',
+  'PRIOR', 'PRIZE', 'PROOF', 'PROUD', 'PROVE', 'QUEEN', 'QUICK', 'QUIET',
+  'QUITE', 'RADIO', 'RAISE', 'RANGE', 'RAPID', 'RATIO', 'REACH', 'READY',
+  'REFER', 'RELAX', 'REPLY', 'RIGHT', 'RIVER', 'ROBIN', 'ROGER', 'ROMAN',
+  'ROUGH', 'ROUND', 'ROUTE', 'ROYAL', 'RURAL', 'SCALE', 'SCENE', 'SCOPE',
+  'SCORE', 'SENSE', 'SERVE', 'SEVEN', 'SHALL', 'SHAPE', 'SHARE', 'SHARP',
+  'SHEET', 'SHELF', 'SHELL', 'SHIFT', 'SHINE', 'SHIRT', 'SHOCK', 'SHOOT',
+  'SHORT', 'SHOWN', 'SIGHT', 'SINCE', 'SIXTH', 'SIXTY', 'SIZED', 'SKILL',
+  'SLEEP', 'SLIDE', 'SMALL', 'SMART', 'SMILE', 'SMITH', 'SMOKE', 'SOLID',
+  'SOLVE', 'SORRY', 'SOUND', 'SOUTH', 'SPACE', 'SPARE', 'SPEAK', 'SPEED',
+  'SPEND', 'SPENT', 'SPLIT', 'SPOKE', 'SPORT', 'STAFF', 'STAGE', 'STAKE',
+  'STAND', 'START', 'STATE', 'STEAM', 'STEEL', 'STICK', 'STILL', 'STOCK',
+  'STONE', 'STOOD', 'STORE', 'STORM', 'STORY', 'STRIP', 'STUCK', 'STUDY',
+  'STUFF', 'STYLE', 'SUGAR', 'SUITE', 'SUPER', 'SWEET', 'TABLE', 'TAKEN',
+  'TASTE', 'TAXES', 'TEACH', 'TEETH', 'TERRY', 'TEXAS', 'THANK', 'THEFT',
+  'THEIR', 'THEME', 'THERE', 'THESE', 'THICK', 'THING', 'THINK', 'THIRD',
+  'THOSE', 'THREE', 'THREW', 'THROW', 'TIGHT', 'TIMES', 'TITLE', 'TODAY',
+  'TOPIC', 'TOTAL', 'TOUCH', 'TOUGH', 'TOWER', 'TRACK', 'TRADE', 'TRAIN',
+  'TREAT', 'TREND', 'TRIAL', 'TRIBE', 'TRICK', 'TRIED', 'TRIES', 'TROOP',
+  'TRUCK', 'TRULY', 'TRUNK', 'TRUST', 'TRUTH', 'TWICE', 'UNDER', 'UNDUE',
+  'UNION', 'UNITY', 'UNTIL', 'UPPER', 'UPSET', 'URBAN', 'USAGE', 'USUAL',
+  'VALID', 'VALUE', 'VIDEO', 'VIRUS', 'VISIT', 'VITAL', 'VOCAL', 'VOICE',
+  'WASTE', 'WATCH', 'WATER', 'WHEEL', 'WHERE', 'WHICH', 'WHILE', 'WHITE',
+  'WHOLE', 'WHOSE', 'WOMAN', 'WOMEN', 'WORLD', 'WORRY', 'WORSE', 'WORST',
+  'WORTH', 'WOULD', 'WOUND', 'WRITE', 'WRONG', 'WROTE', 'YIELD', 'YOUNG',
+  'YOUTH', 'BOXING', 'FOXING', 'MIXING', 'FIXING', 'TAXING', 'WAXING',
+]);
 
 /**
- * Fast word validation using Trie
+ * Validates if a word is in the dictionary
+ * @param word - The word to validate (case-insensitive)
+ * @returns true if the word is valid, false otherwise
  */
-export function isValidWordFast(word: string): boolean {
-  if (!word || word.length < 3) {
+export function validateWord(word: string): boolean {
+  if (!word || typeof word !== 'string') {
     return false;
   }
   
-  const trie = initializeDictionary();
-  return trie.search(word);
-}
-
-/**
- * Check if a prefix could lead to a valid word
- * Useful for providing hints while user is selecting tiles
- */
-export function isValidPrefix(prefix: string): boolean {
-  if (!prefix) {
-    return true;
+  const normalized = word.toUpperCase().trim();
+  
+  if (normalized.length < 3) {
+    return false;
   }
   
-  const trie = initializeDictionary();
-  return trie.startsWith(prefix);
-}
-
-/**
- * Get word suggestions based on prefix
- * Useful for autocomplete or hints
- */
-export function getWordSuggestions(prefix: string, maxSuggestions: number = 5): string[] {
-  // This would require a more complex implementation
-  // For now, return empty array
-  return [];
+  return ALL_WORDS.has(normalized);
 }

@@ -26,7 +26,7 @@ import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import GameBoard from '@/components/GameBoard';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
 import * as Haptics from 'expo-haptics';
@@ -80,21 +80,7 @@ export default function GameScreen() {
     turnLimit: gameMode === 'solo' ? turnLimit : undefined,
   };
 
-  useEffect(() => {
-    console.log('GameScreen mounted with params:', params);
-    
-    // Remember the mode the player chose
-    setLastPlayedMode(gameMode);
-    
-    if (gameId) {
-      loadExistingGame(gameId);
-    } else {
-      startNewGame();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function loadExistingGame(id: string) {
+  const loadExistingGame = useCallback(async (id: string) => {
     console.log('Loading existing game:', id);
     try {
       setLoading(true);
@@ -115,9 +101,9 @@ export default function GameScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function startNewGame() {
+  const startNewGame = useCallback(async () => {
     console.log('Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     try {
       setLoading(true);
@@ -153,7 +139,20 @@ export default function GameScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [gridSize, puzzleMode, turnLimit, gameMode]);
+
+  useEffect(() => {
+    console.log('GameScreen mounted with params:', params);
+    
+    // Remember the mode the player chose
+    setLastPlayedMode(gameMode);
+    
+    if (gameId) {
+      loadExistingGame(gameId);
+    } else {
+      startNewGame();
+    }
+  }, [gameId, gameMode, loadExistingGame, startNewGame, params]);
 
   function handleTilePress(row: number, col: number) {
     if (!board || gameStatus !== 'playing') {
@@ -390,7 +389,6 @@ export default function GameScreen() {
       
       if (xpResult.newUnlocks && xpResult.newUnlocks.length > 0) {
         console.log('[Progression] New unlocks:', xpResult.newUnlocks);
-        // TODO: Show unlock notifications in a separate modal
       }
     } catch (xpErr) {
       console.error('[Progression] Failed to award XP:', xpErr);
@@ -473,10 +471,8 @@ export default function GameScreen() {
     setShowCompletionModal(false);
     
     if (gameMode === 'solo') {
-      // Switch to Multiplayer
       router.push('/multiplayer-matchmaking');
     } else {
-      // Switch to Solo
       router.push('/board-select?mode=Solo');
     }
   }

@@ -1,204 +1,21 @@
 
 import { BoardState, Position, PuzzleMode } from '@/types/game';
+import { ALL_WORDS, validateWord as validateWordFromDictionary } from './wordDictionary';
+
+// Re-export the comprehensive dictionary
+export { ALL_WORDS };
 
 // ============================================
 // WORD VALIDATION
 // ============================================
 
 /**
- * Comprehensive English words dictionary (3+ letters)
- * Includes common words for gameplay
- * Case-insensitive validation
- */
-const COMMON_WORDS = new Set([
-  // 3-letter words (expanded)
-  'CAT', 'DOG', 'BAT', 'RAT', 'HAT', 'MAT', 'SAT', 'FAT', 'PAT', 'VAT',
-  'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER',
-  'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW',
-  'MAN', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WAY', 'WHO', 'BOY', 'DID',
-  'ITS', 'LET', 'PUT', 'SAY', 'SHE', 'TOO', 'USE', 'BIG', 'END', 'FAR',
-  'FUN', 'GOT', 'HOT', 'JOB', 'LAY', 'LOT', 'MAY', 'RAN', 'RED', 'RUN',
-  'SET', 'SIT', 'TEN', 'TOP', 'TRY', 'WIN', 'YES', 'YET', 'AGO', 'AIR',
-  'BAD', 'BAG', 'BED', 'BIT', 'BOX', 'BUS', 'BUY', 'CAR', 'CUP', 'CUT',
-  'EAR', 'EAT', 'EGG', 'EYE', 'FEW', 'FIT', 'FLY', 'FOX', 'GAS', 'GUN',
-  'HIT', 'ICE', 'ILL', 'KEY', 'LAW', 'LEG', 'LIE', 'LOW', 'MAP', 'MIX',
-  'NOR', 'ODD', 'OFF', 'OIL', 'OWN', 'PAY', 'PEN', 'PET', 'PIE', 'PIG',
-  'POT', 'RAW', 'ROW', 'RUB', 'RUG', 'SAD', 'SEA', 'SIX', 'SKY', 'SON',
-  'SUN', 'TAX', 'TEA', 'TIE', 'TON', 'TOY', 'VAN', 'WAR', 'WET', 'WHY',
-  'ZOO', 'ACE', 'ACT', 'ADD', 'AGE', 'AID', 'AIM', 'ART', 'ASK', 'ATE',
-  
-  // 4-letter words (expanded)
-  'ABLE', 'BACK', 'BEEN', 'CALL', 'CAME', 'COME', 'EACH', 'EVEN', 'FIND',
-  'GIVE', 'GOOD', 'HAND', 'HAVE', 'HERE', 'HIGH', 'INTO', 'JUST', 'KNOW',
-  'LAST', 'LIFE', 'LIKE', 'LINE', 'LONG', 'LOOK', 'MADE', 'MAKE', 'MANY',
-  'MORE', 'MOST', 'MOVE', 'MUCH', 'MUST', 'NAME', 'NEED', 'NEXT', 'ONLY',
-  'OVER', 'PART', 'SAME', 'SEEM', 'SHOW', 'SIDE', 'SOME', 'SUCH', 'TAKE',
-  'TELL', 'THAN', 'THAT', 'THEM', 'THEN', 'THIS', 'TIME', 'VERY', 'WANT',
-  'WELL', 'WENT', 'WERE', 'WHAT', 'WHEN', 'WITH', 'WORK', 'YEAR', 'YOUR',
-  'ALSO', 'AREA', 'AWAY', 'BEST', 'BOTH', 'CITY', 'DOOR', 'DOWN', 'EACH',
-  'FACE', 'FACT', 'FEEL', 'FELT', 'FIRE', 'FIVE', 'FOOD', 'FORM', 'FOUR',
-  'FREE', 'FROM', 'FULL', 'GAME', 'GAVE', 'GIRL', 'GOES', 'GONE', 'HALF',
-  'HEAD', 'HEAR', 'HELP', 'HOLD', 'HOME', 'HOPE', 'HOUR', 'IDEA', 'KEEP',
-  'KIND', 'KNEW', 'LATE', 'LEAD', 'LEFT', 'LESS', 'LIVE', 'LOST', 'LOVE',
-  'MAIN', 'MEAN', 'MEET', 'MIND', 'MISS', 'NEAR', 'ONCE', 'OPEN', 'PAID',
-  'PASS', 'PAST', 'PLAN', 'PLAY', 'PULL', 'PUSH', 'READ', 'REAL', 'REST',
-  'ROAD', 'ROOM', 'SAID', 'SAVE', 'SEEN', 'SELF', 'SEND', 'SENT', 'SOON',
-  'SORT', 'STAY', 'STEP', 'STOP', 'SURE', 'TALK', 'TEAM', 'TOLD', 'TOOK',
-  'TOWN', 'TREE', 'TRUE', 'TURN', 'USED', 'WAIT', 'WALK', 'WALL', 'WEEK',
-  'WEST', 'WIFE', 'WILL', 'WIND', 'WISH', 'WORD', 'WORE', 'YARD', 'ZONE',
-  'ABLE', 'ACID', 'AGED', 'ALSO', 'AREA', 'ARMY', 'BABY', 'BACK', 'BALL',
-  'BAND', 'BANK', 'BASE', 'BATH', 'BEAR', 'BEAT', 'BEER', 'BELL', 'BELT',
-  'BENT', 'BIKE', 'BILL', 'BIRD', 'BLOW', 'BLUE', 'BOAT', 'BODY', 'BOMB',
-  'BOND', 'BONE', 'BOOK', 'BOOM', 'BORN', 'BOSS', 'BOWL', 'BULK', 'BURN',
-  'BUSH', 'BUSY', 'CAFE', 'CAGE', 'CAKE', 'CALM', 'CAMP', 'CARD', 'CARE',
-  'CASE', 'CASH', 'CAST', 'CELL', 'CHAT', 'CHIP', 'CLUB', 'COAL', 'COAT',
-  'CODE', 'COLD', 'COMB', 'COOL', 'COPE', 'COPY', 'CORE', 'COST', 'CREW',
-  'CROP', 'DARK', 'DATA', 'DATE', 'DAWN', 'DAYS', 'DEAD', 'DEAL', 'DEAN',
-  'DEAR', 'DEBT', 'DEEP', 'DENY', 'DESK', 'DIAL', 'DICK', 'DIET', 'DISC',
-  'DISK', 'DOES', 'DOLL', 'DOOR', 'DOSE', 'DRAG', 'DRAW', 'DREW', 'DROP',
-  'DRUG', 'DRUM', 'DUAL', 'DUCK', 'DUKE', 'DULL', 'DUMP', 'DUST', 'DUTY',
-  'EACH', 'EARN', 'EASE', 'EAST', 'EASY', 'EDGE', 'ELSE', 'EVEN', 'EVER',
-  'EVIL', 'EXIT', 'FACE', 'FACT', 'FAIL', 'FAIR', 'FALL', 'FARM', 'FAST',
-  'FATE', 'FEAR', 'FEED', 'FEEL', 'FEET', 'FELL', 'FELT', 'FILE', 'FILL',
-  'FILM', 'FIND', 'FINE', 'FIRM', 'FISH', 'FIVE', 'FLAG', 'FLAT', 'FLEW',
-  'FLOW', 'FOLK', 'FOND', 'FONT', 'FOOL', 'FOOT', 'FORD', 'FORK', 'FORT',
-  
-  // 5-letter words (expanded)
-  'ABOUT', 'ABOVE', 'AFTER', 'AGAIN', 'ALONG', 'AMONG', 'ASKED', 'BASED',
-  'BEGIN', 'BEING', 'BELOW', 'BLACK', 'BRING', 'BUILD', 'CARRY', 'CAUSE',
-  'CHAIR', 'CHILD', 'CLEAR', 'CLOSE', 'COULD', 'DOING', 'EARLY', 'EARTH',
-  'EIGHT', 'ENTER', 'EVERY', 'FIELD', 'FIRST', 'FLOOR', 'FORCE', 'FOUND',
-  'FRONT', 'GIVEN', 'GOING', 'GREAT', 'GREEN', 'GROUP', 'HAPPY', 'HEARD',
-  'HEART', 'HEAVY', 'HORSE', 'HOUSE', 'HUMAN', 'LARGE', 'LATER', 'LEARN',
-  'LEAST', 'LEAVE', 'LEVEL', 'LIGHT', 'LIVED', 'LOCAL', 'MAJOR', 'MIGHT',
-  'MONEY', 'MONTH', 'MUSIC', 'NEVER', 'NIGHT', 'NORTH', 'OFTEN', 'ORDER',
-  'OTHER', 'PARTY', 'PEACE', 'PLACE', 'PLANT', 'POINT', 'POWER', 'PRESS',
-  'QUITE', 'REACH', 'RIGHT', 'RIVER', 'ROUND', 'SENSE', 'SEVEN', 'SHALL',
-  'SHORT', 'SHOWN', 'SINCE', 'SMALL', 'SOUND', 'SOUTH', 'SPACE', 'SPEAK',
-  'SPENT', 'STAND', 'START', 'STATE', 'STILL', 'STOOD', 'STORY', 'STUDY',
-  'STUFF', 'TABLE', 'TAKEN', 'THANK', 'THEIR', 'THERE', 'THESE', 'THING',
-  'THINK', 'THIRD', 'THOSE', 'THREE', 'TODAY', 'TOTAL', 'TOUCH', 'TRIED',
-  'UNDER', 'UNTIL', 'USING', 'VALUE', 'VOICE', 'WATCH', 'WATER', 'WHERE',
-  'WHICH', 'WHILE', 'WHITE', 'WHOLE', 'WHOSE', 'WOMAN', 'WORLD', 'WOULD',
-  'WRITE', 'WRONG', 'YOUNG', 'BREAK', 'CLAIM', 'SHIFT', 'VAULT', 'NORTH',
-  'SOUTH', 'MADAM', 'RADAR', 'CIVIC', 'KAYAK', 'REFER', 'ROTOR', 'SAGAS',
-  'BOXES', 'FOXES', 'MIXED', 'FIXED', 'TAXED', 'WAXED', 'VEXED', 'HEXED',
-  
-  // 6-letter words (expanded)
-  'ACROSS', 'ACTION', 'ALWAYS', 'AMOUNT', 'ANSWER', 'APPEAR', 'AROUND',
-  'ATTACK', 'BECAME', 'BECOME', 'BEFORE', 'BEHIND', 'BETTER', 'BEYOND',
-  'BOUGHT', 'BROKEN', 'CALLED', 'CANNOT', 'CENTER', 'CENTRE', 'CHANGE',
-  'CHARGE', 'CHURCH', 'CLOSED', 'COMING', 'COMMON', 'COURSE', 'CREATE',
-  'DECIDE', 'DEGREE', 'DEMAND', 'DEPEND', 'DESIGN', 'DETAIL', 'DIRECT',
-  'DOCTOR', 'DURING', 'EFFECT', 'EFFORT', 'EITHER', 'ENERGY', 'ENOUGH',
-  'ENTIRE', 'EUROPE', 'EXPECT', 'FAMILY', 'FATHER', 'FIGURE', 'FOLLOW',
-  'FRIEND', 'FUTURE', 'GARDEN', 'GROUND', 'GROWTH', 'HAPPEN', 'HAVING',
-  'HEALTH', 'HIDDEN', 'HIGHER', 'INDEED', 'INSIDE', 'ISLAND', 'ITSELF',
-  'KILLED', 'LABOUR', 'LATEST', 'LATTER', 'LEADER', 'LETTER', 'LISTEN',
-  'LITTLE', 'LIVING', 'LONDON', 'LOOKED', 'MAKING', 'MANNER', 'MARKET',
-  'MATTER', 'MEMBER', 'MEMORY', 'METHOD', 'MIDDLE', 'MINUTE', 'MODERN',
-  'MOMENT', 'MOTHER', 'MOTION', 'MOVING', 'MURDER', 'NATION', 'NATURE',
-  'NEARLY', 'NEEDED', 'NOTICE', 'NUMBER', 'OBJECT', 'OFFICE', 'OPENED',
-  'ORIGIN', 'OTHERS', 'PASSED', 'PEOPLE', 'PERIOD', 'PERSON', 'PLACED',
-  'PLAYED', 'PLEASE', 'POLICY', 'PRETTY', 'PRINCE', 'PROPER', 'PUBLIC',
-  'RATHER', 'REASON', 'RECENT', 'RECORD', 'REDUCE', 'REGION', 'REMAIN',
-  'REMOVE', 'REPORT', 'RESULT', 'RETURN', 'REVEAL', 'ROTATE', 'SCHOOL',
-  'SEASON', 'SECOND', 'SECRET', 'SEEMED', 'SERIES', 'SERVED', 'SETTLE',
-  'SHOULD', 'SIMPLE', 'SINGLE', 'SISTER', 'SOCIAL', 'SPIRIT', 'SPREAD',
-  'SPRING', 'SQUARE', 'STREET', 'STRONG', 'STRUCK', 'SUMMER', 'SUPPLY',
-  'SYSTEM', 'TAKING', 'THOUGH', 'TOWARD', 'TRAVEL', 'TRYING', 'TURNED',
-  'TWENTY', 'UNABLE', 'UNITED', 'UNLESS', 'UNLIKE', 'WANTED', 'WINDOW',
-  'WINTER', 'WITHIN', 'WONDER', 'WORKED', 'WRITER', 'UNLOCK', 'PHRASE',
-  'BOXING', 'FOXING', 'MIXING', 'FIXING', 'TAXING', 'WAXING',
-  
-  // 7+ letter words (expanded)
-  'ABILITY', 'ACCOUNT', 'ADDRESS', 'AGAINST', 'ALREADY', 'ANOTHER',
-  'ANYTHING', 'ARRIVED', 'ARTICLE', 'ATTEMPT', 'AVERAGE', 'BECAUSE',
-  'BELIEVE', 'BENEFIT', 'BETWEEN', 'BROTHER', 'BROUGHT', 'BUILDING',
-  'BUSINESS', 'CAPITAL', 'CAPTAIN', 'CENTURY', 'CERTAIN', 'CHAIRMAN',
-  'CHAPTER', 'CHARACTER', 'CHILDREN', 'COLLEGE', 'COMPANY', 'COMPARE',
-  'COMPLETE', 'CONCERN', 'CONDITION', 'CONSIDER', 'CONTAIN', 'CONTINUE',
-  'CONTROL', 'COUNTRY', 'CURRENT', 'DECIDED', 'DEFENCE', 'DEFENSE',
-  'DEVELOP', 'DIFFERENCE', 'DIFFERENT', 'DIFFICULT', 'DIRECTION', 'DISCOVER',
-  'DISTANCE', 'DISTRICT', 'DIVISION', 'ECONOMY', 'EDUCATION', 'ELECTION',
-  'ELEMENT', 'ENGLAND', 'ENGLISH', 'EVENING', 'EVIDENCE', 'EXAMPLE',
-  'EXERCISE', 'EXPERIENCE', 'EXPLAIN', 'EXPRESS', 'FEELING', 'FINALLY',
-  'FOREIGN', 'FORWARD', 'FREEDOM', 'FURTHER', 'GENERAL', 'GOVERNMENT',
-  'GREATER', 'HISTORY', 'HOWEVER', 'HUNDRED', 'HUSBAND', 'IMAGINE',
-  'IMPORTANT', 'IMPROVE', 'INCLUDE', 'INCREASE', 'INDUSTRY', 'INSTEAD',
-  'INTEREST', 'JUSTICE', 'KITCHEN', 'LANGUAGE', 'LEADING', 'LEARNED',
-  'LIBRARY', 'MACHINE', 'MANAGER', 'MEANING', 'MEASURE', 'MEETING',
-  'MENTION', 'MESSAGE', 'MILLION', 'MINISTER', 'MORNING', 'MOVEMENT',
-  'NATURAL', 'NEITHER', 'NOTHING', 'OBVIOUS', 'OFFICER', 'OPINION',
-  'OUTSIDE', 'OVERALL', 'PARENTS', 'PARTICULAR', 'PASSAGE', 'PATTERN',
-  'PERHAPS', 'PICTURE', 'POLITICAL', 'POPULAR', 'POSITION', 'POSSIBLE',
-  'PRESENT', 'PRESIDENT', 'PRESSURE', 'PRIVATE', 'PROBABLY', 'PROBLEM',
-  'PROCESS', 'PRODUCE', 'PRODUCT', 'PROGRAM', 'PROJECT', 'PROMISE',
-  'PROTECT', 'PROVIDE', 'PURPOSE', 'QUALITY', 'QUARTER', 'QUESTION',
-  'QUICKLY', 'RAILWAY', 'REALIZE', 'RECEIVE', 'RECENTLY', 'RECOGNIZE',
-  'REQUIRE', 'RESPECT', 'SECTION', 'SERIOUS', 'SERVICE', 'SEVERAL',
-  'SIMILAR', 'SOCIETY', 'SOLDIER', 'SOMEONE', 'SPECIAL', 'STATION',
-  'STRANGE', 'STUDENT', 'SUBJECT', 'SUCCESS', 'SUGGEST', 'SUPPORT',
-  'SURFACE', 'TEACHER', 'THOUGHT', 'THROUGH', 'TONIGHT', 'TOWARDS',
-  'TRAFFIC', 'TROUBLE', 'TURNING', 'USUALLY', 'VARIOUS', 'VILLAGE',
-  'WAITING', 'WALKING', 'WEATHER', 'WHETHER', 'WITHOUT', 'WORKING',
-  'WRITING', 'WRITTEN', 'RACECAR', 'ROTATOR', 'DEIFIED', 'REPAPER',
-  'REVIVER', 'TERRITORY', 'EMOTIONAL', 'HAPPINESS',
-  
-  // Action verbs
-  'MOVE', 'ROTATE', 'SHIFT', 'BREAK', 'UNLOCK', 'REVEAL', 'PUSH', 'PULL',
-  'SLIDE', 'TWIST', 'FLIP', 'SPIN', 'SWAP', 'CHANGE', 'TRANSFORM',
-  
-  // Emotion words
-  'HAPPY', 'SAD', 'JOY', 'FEAR', 'LOVE', 'ANGER', 'HOPE', 'PRIDE',
-  'SHAME', 'GUILT', 'TRUST', 'CALM', 'RAGE', 'PEACE', 'WORRY',
-  
-  // Direction words
-  'NORTH', 'SOUTH', 'EAST', 'WEST', 'UP', 'DOWN', 'LEFT', 'RIGHT',
-  'FORWARD', 'BACKWARD', 'UPWARD', 'DOWNWARD',
-  
-  // Additional common 3-4 letter words for better gameplay
-  'APEX', 'AQUA', 'ARCH', 'ATOM', 'AUNT', 'AUTO', 'BAKE', 'BARN', 'BEAN',
-  'BEEF', 'BELL', 'BEND', 'BIKE', 'BIND', 'BITE', 'BLOB', 'BLOG', 'BLOW',
-  'BLUR', 'BOIL', 'BOLD', 'BOLT', 'BONE', 'BOOK', 'BOOM', 'BOOT', 'BORE',
-  'BOSS', 'BOWL', 'BOXY', 'BRAG', 'BRAN', 'BREW', 'BRIM', 'BULK', 'BUMP',
-  'BUNK', 'BURN', 'BURP', 'BURY', 'BUSH', 'BUST', 'BUZZ', 'BYTE', 'CAGE',
-  'CAKE', 'CALF', 'CALM', 'CAME', 'CAMP', 'CANE', 'CAPE', 'CARD', 'CARE',
-  'CARP', 'CART', 'CASE', 'CASH', 'CAST', 'CAVE', 'CELL', 'CENT', 'CHAP',
-  'CHAR', 'CHAT', 'CHEF', 'CHEW', 'CHIN', 'CHIP', 'CHOP', 'CITE', 'CLAD',
-  'CLAM', 'CLAN', 'CLAP', 'CLAW', 'CLAY', 'CLIP', 'CLOD', 'CLOG', 'CLUB',
-  'CLUE', 'COAL', 'COAT', 'CODE', 'COIL', 'COIN', 'COLD', 'COLT', 'COMB',
-  'CONE', 'COOK', 'COOL', 'COPE', 'COPY', 'CORD', 'CORE', 'CORK', 'CORN',
-  'COST', 'COZY', 'CRAB', 'CRAM', 'CREW', 'CRIB', 'CROP', 'CROW', 'CUBE',
-  'CURB', 'CURE', 'CURL', 'CUTE', 'DAMP', 'DARE', 'DARK', 'DART', 'DASH',
-  'DATA', 'DATE', 'DAWN', 'DAZE', 'DEAL', 'DEAN', 'DEAR', 'DEBT', 'DECK',
-  'DEED', 'DEEM', 'DEEP', 'DEER', 'DEMO', 'DENT', 'DENY', 'DESK', 'DIAL',
-  'DICE', 'DIET', 'DIME', 'DINE', 'DIRE', 'DIRT', 'DISC', 'DISH', 'DISK',
-  'DIVE', 'DOCK', 'DOLL', 'DOME', 'DONE', 'DOOM', 'DOSE', 'DOVE', 'DOWN',
-  'DOZE', 'DRAB', 'DRAG', 'DRAM', 'DRAW', 'DREW', 'DRIP', 'DROP', 'DRUG',
-  'DRUM', 'DUAL', 'DUCK', 'DUCT', 'DUDE', 'DUEL', 'DUET', 'DUKE', 'DULL',
-  'DUMB', 'DUMP', 'DUNE', 'DUNK', 'DUPE', 'DUSK', 'DUST', 'DUTY', 'DYED',
-]);
-
-/**
  * Validates if a word is acceptable for gameplay
- * - Minimum 3 letters
- * - Common English words only
- * - Case-insensitive
+ * Uses the comprehensive dictionary from wordDictionary.ts
+ * CRITICAL: This is the single source of truth for word validation
  */
 export function validateWord(word: string): boolean {
-  console.log('Validating word:', word);
-  
-  if (!word || word.length < 3) {
-    console.log('Word too short:', word.length);
-    return false;
-  }
-  
-  const upperWord = word.toUpperCase();
-  const isValid = COMMON_WORDS.has(upperWord);
-  
-  console.log('Word validation result:', isValid, 'for word:', upperWord);
-  return isValid;
+  return validateWordFromDictionary(word);
 }
 
 // ============================================
@@ -496,13 +313,9 @@ export function reverseBoardRegion(board: BoardState, center: Position, regionSi
   const newTiles = board.tiles.map(row => row.map(tile => ({ ...tile })));
   const positions = getRegionPositions(center, regionSize, board.size);
   
-  // Extract tiles from positions
   const tilesToReverse = positions.map(pos => newTiles[pos.row][pos.col]);
-  
-  // Reverse the array
   tilesToReverse.reverse();
   
-  // Place them back
   positions.forEach((pos, index) => {
     const reversedTile = tilesToReverse[index];
     newTiles[pos.row][pos.col] = {
@@ -528,8 +341,6 @@ export function rotateBoardSection(
   const newTiles = board.tiles.map(row => row.map(tile => ({ ...tile })));
   const positions = getRegionPositions(center, sectionSize, board.size);
   
-  // For simplicity, we'll rotate by swapping positions in a circular pattern
-  // This is a simplified rotation - a full implementation would do proper matrix rotation
   const tilesToRotate = positions.map(pos => newTiles[pos.row][pos.col]);
   
   if (direction === 'clockwise') {
@@ -571,7 +382,6 @@ export function shiftRow(board: BoardState, rowIndex: number, direction: 'left' 
     row.push(firstTile);
   }
   
-  // Update column positions
   row.forEach((tile, colIndex) => {
     tile.col = colIndex;
   });
@@ -600,7 +410,6 @@ export function shiftColumn(board: BoardState, colIndex: number, direction: 'up'
     column.push(firstTile);
   }
   
-  // Update row positions and place back
   column.forEach((tile, rowIndex) => {
     tile.row = rowIndex;
     newTiles[rowIndex][colIndex] = tile;
@@ -672,7 +481,6 @@ export function applyWordEffectsToBoard(
   console.log('Applying word effects to board:', word, 'effects:', effects.length);
   let updatedBoard = { ...board };
   
-  // Apply each effect in sequence
   effects.forEach(effect => {
     updatedBoard = applySingleEffect(
       updatedBoard,
@@ -685,13 +493,11 @@ export function applyWordEffectsToBoard(
     );
   });
   
-  // Replace used tiles with new letters (unless they're special puzzle tiles)
   const newTiles = updatedBoard.tiles.map(row => row.map(tile => ({ ...tile })));
   
   selectedPositions.forEach(pos => {
     const tile = newTiles[pos.row][pos.col];
     
-    // Don't replace locked, vault, or phrase tiles
     if (!tile.isLocked && !tile.isVault && !tile.isPhraseLetter) {
       const newLetter = generateRandomLetter();
       newTiles[pos.row][pos.col] = {
@@ -721,12 +527,10 @@ function applySingleEffect(
   let updatedBoard = { ...board };
   const newTiles = updatedBoard.tiles.map(row => row.map(tile => ({ ...tile })));
   
-  // Get center position for area effects
   const centerPos = selectedPositions[Math.floor(selectedPositions.length / 2)];
   
   switch (effect.type) {
     case 'rare_letter':
-      // Rare letters (Q, Z, X, J) instantly break locked tiles
       selectedPositions.forEach(pos => {
         const adjacent = getAdjacentPositions(pos, board.size);
         adjacent.forEach(adjPos => {
@@ -744,12 +548,10 @@ function applySingleEffect(
       break;
       
     case 'palindrome':
-      // Reverse a 3x3 region around the center
       updatedBoard = reverseBoardRegion(updatedBoard, centerPos, 3);
       return updatedBoard;
       
     case 'repeated':
-      // Duplicate the previous effect
       if (lastEffect) {
         console.log('Duplicating previous effect:', lastEffect.type);
         updatedBoard = applySingleEffect(
@@ -765,7 +567,6 @@ function applySingleEffect(
       break;
       
     case 'all_vowels':
-      // Reveal hidden or fogged tiles
       newTiles.forEach(row => {
         row.forEach(tile => {
           if (tile.isPhraseLetter && !tile.isRevealed && tile.hiddenLetter) {
@@ -779,11 +580,9 @@ function applySingleEffect(
       
     case 'category':
       if (effect.category === 'action_verb') {
-        // Rotate a 3x3 section around the center
         updatedBoard = rotateBoardSection(updatedBoard, centerPos, 3, 'clockwise');
         return updatedBoard;
       } else if (effect.category === 'emotion_word') {
-        // Change tile ownership (for territory control)
         if (puzzleMode === 'territory_control') {
           selectedPositions.forEach(pos => {
             const adjacent = getAdjacentPositions(pos, board.size);
@@ -801,7 +600,6 @@ function applySingleEffect(
           });
         }
       } else if (effect.category === 'direction_word') {
-        // Shift rows or columns based on direction
         const upper = word.toUpperCase();
         if (upper === 'NORTH' || upper === 'UP' || upper === 'UPWARD') {
           updatedBoard = shiftColumn(updatedBoard, centerPos.col, 'up');
@@ -820,26 +618,22 @@ function applySingleEffect(
       break;
       
     case 'bonus':
-      // Bonus effects based on puzzle mode
       if (puzzleMode === 'vault_break') {
-        // Weaken locks on adjacent tiles
         selectedPositions.forEach(pos => {
           const adjacent = getAdjacentPositions(pos, board.size);
           adjacent.forEach(adjPos => {
             const tile = newTiles[adjPos.row][adjPos.col];
             if (tile.isLocked || tile.isVault) {
               console.log('Weakening lock at:', adjPos);
-              // Mark as weakened (could be broken by next word)
               newTiles[adjPos.row][adjPos.col] = {
                 ...tile,
                 isSpecial: true,
-                specialType: 'double', // Visual indicator
+                specialType: 'double',
               };
             }
           });
         });
       } else if (puzzleMode === 'hidden_phrase') {
-        // Reveal some hidden letters
         const hiddenTiles = newTiles.flat().filter(t => t.isPhraseLetter && !t.isRevealed);
         const toReveal = Math.min(2, hiddenTiles.length);
         for (let i = 0; i < toReveal; i++) {
@@ -854,7 +648,6 @@ function applySingleEffect(
           }
         }
       } else if (puzzleMode === 'territory_control') {
-        // Shift ownership of nearby tiles
         selectedPositions.forEach(pos => {
           const adjacent = getAdjacentPositions(pos, board.size);
           adjacent.forEach(adjPos => {
@@ -872,9 +665,7 @@ function applySingleEffect(
       break;
       
     case 'major':
-      // Major effects based on puzzle mode
       if (puzzleMode === 'vault_break') {
-        // Unlock multiple vaults
         const vaultTiles = newTiles.flat().filter(t => t.isVault && t.isLocked);
         const toUnlock = Math.min(3, vaultTiles.length);
         for (let i = 0; i < toUnlock; i++) {
@@ -887,7 +678,6 @@ function applySingleEffect(
           };
         }
       } else if (puzzleMode === 'hidden_phrase') {
-        // Reveal large portion of phrase
         const hiddenTiles = newTiles.flat().filter(t => t.isPhraseLetter && !t.isRevealed);
         const toReveal = Math.min(5, hiddenTiles.length);
         for (let i = 0; i < toReveal; i++) {
@@ -902,7 +692,6 @@ function applySingleEffect(
           }
         }
       } else if (puzzleMode === 'territory_control') {
-        // Claim large area
         const regionPositions = getRegionPositions(centerPos, 5, board.size);
         regionPositions.forEach(pos => {
           const tile = newTiles[pos.row][pos.col];
