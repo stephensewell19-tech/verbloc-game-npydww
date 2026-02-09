@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { RemoteConfig, getRemoteConfig, refreshRemoteConfig } from '@/utils/remoteConfig';
 
 interface RemoteConfigContextType {
@@ -17,51 +17,85 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<RemoteConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    setMounted(true);
+    mountedRef.current = true;
+    console.log('[RemoteConfig] Component mounted, loading config');
     
     const loadConfig = async () => {
       try {
-        if (!mounted) {
+        if (!mountedRef.current) {
           console.log('[RemoteConfig] Skipping load - component not mounted yet');
           return;
         }
-        setLoading(true);
-        setError(null);
+        
+        if (mountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
+        
         const remoteConfig = await getRemoteConfig();
+        
+        if (!mountedRef.current) {
+          console.log('[RemoteConfig] Component unmounted during load, skipping state update');
+          return;
+        }
+        
         setConfig(remoteConfig);
         console.log('[RemoteConfig] Config loaded:', remoteConfig);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load remote config';
-        setError(errorMessage);
+        if (mountedRef.current) {
+          setError(errorMessage);
+        }
         console.error('[RemoteConfig] Error loading config:', err);
       } finally {
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     loadConfig();
     
     return () => {
-      setMounted(false);
+      console.log('[RemoteConfig] Component unmounting, cleaning up');
+      mountedRef.current = false;
     };
   }, []);
 
   const refresh = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!mountedRef.current) {
+        console.log('[RemoteConfig] Skipping refresh - component not mounted');
+        return;
+      }
+      
+      if (mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+      
       const remoteConfig = await refreshRemoteConfig();
+      
+      if (!mountedRef.current) {
+        console.log('[RemoteConfig] Component unmounted during refresh, skipping state update');
+        return;
+      }
+      
       setConfig(remoteConfig);
       console.log('[RemoteConfig] Config refreshed:', remoteConfig);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh remote config';
-      setError(errorMessage);
+      if (mountedRef.current) {
+        setError(errorMessage);
+      }
       console.error('[RemoteConfig] Error refreshing config:', err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

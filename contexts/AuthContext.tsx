@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
@@ -70,16 +71,26 @@ function openOAuthPopup(provider: string): Promise<string> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const mountedRef = useRef(false);
 
   const fetchUser = async () => {
     try {
-      if (!mounted) {
+      if (!mountedRef.current) {
         console.log('[Auth] Skipping fetchUser - component not mounted yet');
         return;
       }
-      setLoading(true);
+      
+      if (mountedRef.current) {
+        setLoading(true);
+      }
+      
       const session = await authClient.getSession();
+      
+      if (!mountedRef.current) {
+        console.log('[Auth] Component unmounted during fetchUser, skipping state update');
+        return;
+      }
+      
       if (session?.data?.user) {
         setUser(session.data.user as User);
         // Sync token to SecureStore for utils/api.ts
@@ -92,14 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to fetch user:", error);
-      setUser(null);
+      if (mountedRef.current) {
+        setUser(null);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    setMounted(true);
+    mountedRef.current = true;
+    console.log('[Auth] Component mounted, initializing auth');
     
     // Initial fetch after mount
     const initAuth = async () => {
@@ -112,18 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const subscription = Linking.addEventListener("url", (event) => {
       console.log("Deep link received, refreshing user session");
       // Allow time for the client to process the token if needed
-      setTimeout(() => fetchUser(), 500);
+      setTimeout(() => {
+        if (mountedRef.current) {
+          fetchUser();
+        }
+      }, 500);
     });
 
     // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
     // This prevents 401 errors when the session token rotates
     const intervalId = setInterval(() => {
-      console.log("Auto-refreshing user session to sync token...");
-      fetchUser();
+      if (mountedRef.current) {
+        console.log("Auto-refreshing user session to sync token...");
+        fetchUser();
+      }
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
-      setMounted(false);
+      console.log('[Auth] Component unmounting, cleaning up');
+      mountedRef.current = false;
       subscription.remove();
       clearInterval(intervalId);
     };
@@ -145,7 +168,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         name,
-        // Ensure name is passed in header or logic if required, usually passed in body
       });
       await fetchUser();
       
@@ -177,12 +199,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           provider,
           callbackURL,
         });
-        // Note: The redirect will reload the app or be handled by deep linking.
-        // fetchUser will be called on mount or via event listener if needed.
-        // For simple flow, we might need to listen to URL events.
-        // But better-auth expo client handles the redirect and session storage?
-        // We typically need to wait or rely on fetchUser on next app load.
-        // For now, call fetchUser just in case.
         await fetchUser();
       }
     } catch (error) {
@@ -202,7 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Sign out failed (API):", error);
     } finally {
        // Always clear local state
-       setUser(null);
+       if (mountedRef.current) {
+         setUser(null);
+       }
        await clearAuthTokens();
     }
   };
