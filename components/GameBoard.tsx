@@ -102,18 +102,19 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
       Extrapolate.CLAMP
     );
 
+    const glowRadius = interpolate(
+      glow.value,
+      [0, 1],
+      [0, 12],
+      Extrapolate.CLAMP
+    );
+
     return {
       transform: [
         { scale: scale.value },
         { rotate: `${rotation.value}deg` },
       ],
-      shadowOpacity: glowOpacity,
-      shadowRadius: interpolate(
-        glow.value,
-        [0, 1],
-        [0, 12],
-        Extrapolate.CLAMP
-      ),
+      boxShadow: `0px 4px ${glowRadius}px rgba(0, 0, 0, ${glowOpacity})`,
     };
   });
 
@@ -216,7 +217,6 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
             width: size,
             height: size,
             backgroundColor: tileColor,
-            shadowColor: selected ? colors.primary : '#000',
           },
           animatedStyle,
           !isInteractive && styles.tileDisabled,
@@ -273,9 +273,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    elevation: 4,
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.3)',
   },
   tileDisabled: {
     opacity: 0.6,

@@ -17,10 +17,17 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<RemoteConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    
     const loadConfig = async () => {
       try {
+        if (!mounted) {
+          console.log('[RemoteConfig] Skipping load - component not mounted yet');
+          return;
+        }
         setLoading(true);
         setError(null);
         const remoteConfig = await getRemoteConfig();
@@ -36,6 +43,10 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
     };
 
     loadConfig();
+    
+    return () => {
+      setMounted(false);
+    };
   }, []);
 
   const refresh = async () => {

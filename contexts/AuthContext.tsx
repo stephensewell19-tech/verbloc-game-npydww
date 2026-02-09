@@ -70,32 +70,14 @@ function openOAuthPopup(provider: string): Promise<string> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUser();
-
-    // Listen for deep links (e.g. from social auth redirects)
-    const subscription = Linking.addEventListener("url", (event) => {
-      console.log("Deep link received, refreshing user session");
-      // Allow time for the client to process the token if needed
-      setTimeout(() => fetchUser(), 500);
-    });
-
-    // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
-    // This prevents 401 errors when the session token rotates
-    const intervalId = setInterval(() => {
-      console.log("Auto-refreshing user session to sync token...");
-      fetchUser();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => {
-      subscription.remove();
-      clearInterval(intervalId);
-    };
-  }, []);
+  const [mounted, setMounted] = useState(false);
 
   const fetchUser = async () => {
     try {
+      if (!mounted) {
+        console.log('[Auth] Skipping fetchUser - component not mounted yet');
+        return;
+      }
       setLoading(true);
       const session = await authClient.getSession();
       if (session?.data?.user) {
@@ -115,6 +97,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setMounted(true);
+    
+    // Initial fetch after mount
+    const initAuth = async () => {
+      await fetchUser();
+    };
+    
+    initAuth();
+
+    // Listen for deep links (e.g. from social auth redirects)
+    const subscription = Linking.addEventListener("url", (event) => {
+      console.log("Deep link received, refreshing user session");
+      // Allow time for the client to process the token if needed
+      setTimeout(() => fetchUser(), 500);
+    });
+
+    // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
+    // This prevents 401 errors when the session token rotates
+    const intervalId = setInterval(() => {
+      console.log("Auto-refreshing user session to sync token...");
+      fetchUser();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => {
+      setMounted(false);
+      subscription.remove();
+      clearInterval(intervalId);
+    };
+  }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
