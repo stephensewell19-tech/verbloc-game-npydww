@@ -428,6 +428,25 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => router.push('/notification-preferences')}
+          >
+            <IconSymbol
+              ios_icon_name="bell.fill"
+              android_material_icon_name="notifications"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.actionButtonText}>Notifications</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => console.log('Settings')}
           >
             <IconSymbol

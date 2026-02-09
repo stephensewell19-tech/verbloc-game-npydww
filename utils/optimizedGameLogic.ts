@@ -39,14 +39,15 @@ export function useOptimizedTilePress(
   onTilePress: (row: number, col: number) => void,
   debounceMs: number = 50
 ): (row: number, col: number) => void {
-  let lastPressTime = 0;
+  // Use a ref-like pattern to store lastPressTime outside the callback
+  const lastPressTimeRef = { current: 0 };
   
   return useCallback((row: number, col: number) => {
     const now = Date.now();
-    if (now - lastPressTime < debounceMs) {
+    if (now - lastPressTimeRef.current < debounceMs) {
       return;
     }
-    lastPressTime = now;
+    lastPressTimeRef.current = now;
     onTilePress(row, col);
   }, [onTilePress, debounceMs]);
 }

@@ -34,7 +34,16 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon-txp.png",
+          "color": "#6366F1",
+          "sounds": [],
+          "mode": "production"
+        }
+      ]
     ],
     "scheme": "Verbloc",
     "experiments": {

@@ -1,4 +1,14 @@
 
+import { useRouter } from 'expo-router';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SuperwallContext';
+import { authenticatedGet, apiPost } from '@/utils/api';
+import { PlayerStats, PlayerProgression } from '@/types/game';
+import { Modal } from '@/components/button';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,16 +19,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SuperwallContext';
-import { useRouter } from 'expo-router';
-import { authenticatedGet, apiPost } from '@/utils/api';
-import { PlayerStats, PlayerProgression } from '@/types/game';
-import { Modal } from '@/components/button';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -418,6 +418,25 @@ export default function ProfileScreen() {
               color={colors.text}
             />
             <Text style={styles.actionButtonText}>Achievements</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/notification-preferences')}
+          >
+            <IconSymbol
+              ios_icon_name="bell.fill"
+              android_material_icon_name="notifications"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.actionButtonText}>Notifications</Text>
             <IconSymbol
               ios_icon_name="chevron.right"
               android_material_icon_name="chevron-right"

@@ -4,6 +4,15 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { authenticatedPost } from './api';
 
+// Configure how notifications are handled when app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 /**
  * Register for push notifications and send token to backend
  */
@@ -20,6 +29,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
+      console.log('[Notifications] Requesting notification permissions...');
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
@@ -28,6 +38,8 @@ export async function registerForPushNotifications(): Promise<string | null> {
       console.log('[Notifications] Permission not granted');
       return null;
     }
+
+    console.log('[Notifications] Permission granted, getting push token...');
 
     // Get project ID from app.json or use a default
     const projectId = process.env.EXPO_PUBLIC_PROJECT_ID || undefined;

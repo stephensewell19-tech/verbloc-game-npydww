@@ -50,7 +50,7 @@ function RootLayoutContent() {
       console.log('[RootLayout] Redirecting to onboarding');
       router.replace('/onboarding');
     }
-  }, [isReady, isOnboardingComplete, segments]);
+  }, [isReady, isOnboardingComplete, segments, router]);
 
   if (!isReady) {
     return null;
@@ -75,6 +75,7 @@ function RootLayoutContent() {
       <Stack.Screen name="special-events" options={{ headerShown: false }} />
       <Stack.Screen name="special-event-detail" options={{ headerShown: false }} />
       <Stack.Screen name="subscription" options={{ headerShown: false }} />
+      <Stack.Screen name="notification-preferences" options={{ headerShown: false }} />
       <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
       <Stack.Screen name="terms-of-service" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
