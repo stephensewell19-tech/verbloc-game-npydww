@@ -101,6 +101,29 @@ export default function GameCompletionModal({
   const isManyWords = wordsFormed >= 10;
   const isNearMiss = !isWin && scorePercentage >= 90;
 
+  // Cross-promotion suggestions (subtle and encouraging)
+  let crossPromotionMessage = '';
+  
+  if (currentMode === 'solo') {
+    // After strong Solo performance → suggest Multiplayer
+    if (isWin && (isHighEfficiency || isManyWords)) {
+      crossPromotionMessage = "You'd crush this against real players! 🎮";
+    } else if (isWin && scorePercentage >= 120) {
+      crossPromotionMessage = "That was impressive! Ready to challenge others?";
+    } else if (isWin) {
+      crossPromotionMessage = "Nice win! Think you can beat other players?";
+    }
+  } else if (currentMode === 'multiplayer') {
+    // After close Multiplayer loss → suggest Solo practice
+    if (!isWin && scorePercentage >= 80) {
+      crossPromotionMessage = "So close! Want to practice this board solo?";
+    } else if (!isWin && scorePercentage >= 60) {
+      crossPromotionMessage = "Good effort! Solo mode is great for building skills.";
+    } else if (!isWin) {
+      crossPromotionMessage = "Try solo mode to master the mechanics!";
+    }
+  }
+
   return (
     <RNModal
       visible={visible}
@@ -225,6 +248,19 @@ export default function GameCompletionModal({
               />
               <Text style={styles.encouragementText}>{encouragement}</Text>
             </View>
+
+            {/* Cross-Promotion Suggestion (Subtle & Encouraging) */}
+            {crossPromotionMessage && onSwitchMode && (
+              <View style={styles.crossPromotionBox}>
+                <IconSymbol
+                  ios_icon_name="sparkles"
+                  android_material_icon_name="star"
+                  size={20}
+                  color={colors.accent}
+                />
+                <Text style={styles.crossPromotionText}>{crossPromotionMessage}</Text>
+              </View>
+            )}
 
             {/* PRIMARY ACTION: PLAY AGAIN (Same Mode) */}
             <View style={styles.buttonContainer}>
@@ -439,6 +475,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     lineHeight: 18,
+  },
+  crossPromotionBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.accent + '15',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+  },
+  crossPromotionText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   buttonContainer: {
     gap: 12,
