@@ -1,6 +1,6 @@
 
 import { Tile, Position, BoardState, BoardTile, BoardMetadata, TileType, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
-import { analyzeWordEffects, applyWordEffectsToBoard } from './wordMechanics';
+import { analyzeWordEffects, applyWordEffectsToBoard, validateWord } from './wordMechanics';
 
 const LETTER_VALUES: { [key: string]: number } = {
   A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8,
@@ -37,23 +37,49 @@ const LETTER_DISTRIBUTION = [
   { letter: 'Z', count: 1 },
 ];
 
-export function generateInitialBoard(size: number = 6): BoardState {
-  console.log('Generating initial board with size:', size);
+/**
+ * Generates initial board with proper tile distribution
+ * CRITICAL: Ensures all tiles are generated and never null/empty
+ */
+export function generateInitialBoard(size: number = 7): BoardState {
+  console.log('[GameLogic] Generating initial board with size:', size);
+  
+  if (size < 3 || size > 15) {
+    console.error('[GameLogic] Invalid board size:', size, '- defaulting to 7');
+    size = 7;
+  }
+  
   const tiles: Tile[][] = [];
   const letterPool: string[] = [];
   
+  // Build letter pool based on distribution
   LETTER_DISTRIBUTION.forEach(({ letter, count }) => {
     for (let i = 0; i < count; i++) {
       letterPool.push(letter);
     }
   });
   
+  console.log('[GameLogic] Letter pool size:', letterPool.length);
+  
+  // Generate tiles for each position
   for (let row = 0; row < size; row++) {
     tiles[row] = [];
     for (let col = 0; col < size; col++) {
       const randomIndex = Math.floor(Math.random() * letterPool.length);
       const letter = letterPool[randomIndex];
       
+      if (!letter) {
+        console.error('[GameLogic] Failed to generate letter at', row, col, '- using fallback');
+        tiles[row][col] = {
+          letter: 'A',
+          value: 1,
+          row,
+          col,
+        };
+        continue;
+      }
+      
+      // Determine if tile is special (15% chance)
       const isSpecial = Math.random() < 0.15;
       let specialType: 'double' | 'triple' | 'wildcard' | undefined;
       
@@ -79,42 +105,51 @@ export function generateInitialBoard(size: number = 6): BoardState {
     }
   }
   
+  console.log('[GameLogic] Board generated successfully with', size * size, 'tiles');
+  
+  // Verify board integrity
+  const totalTiles = tiles.flat().length;
+  const validTiles = tiles.flat().filter(t => t && t.letter).length;
+  
+  if (totalTiles !== validTiles) {
+    console.error('[GameLogic] Board integrity check FAILED:', validTiles, '/', totalTiles, 'valid tiles');
+  } else {
+    console.log('[GameLogic] Board integrity check PASSED:', validTiles, 'valid tiles');
+  }
+  
   return { tiles, size };
 }
 
+/**
+ * Validates if a word is acceptable for gameplay
+ * Uses the comprehensive dictionary from wordMechanics
+ * CRITICAL: This is the single source of truth for word validation
+ */
 export function isValidWord(word: string): boolean {
-  console.log('Validating word:', word);
-  if (word.length < 3) {
+  console.log('[GameLogic] Validating word:', word);
+  
+  if (!word || typeof word !== 'string') {
+    console.error('[GameLogic] Invalid word input:', word);
     return false;
   }
   
-  const validWords = [
-    'CAT', 'DOG', 'BIRD', 'FISH', 'TREE', 'STAR', 'MOON', 'SUN',
-    'WORD', 'GAME', 'PLAY', 'WIN', 'LOSE', 'SCORE', 'TILE', 'BOARD',
-    'PUZZLE', 'LETTER', 'BLOCK', 'CHAIN', 'MATCH', 'CLEAR', 'BONUS',
-    'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN',
-    'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM',
-    'HIS', 'HOW', 'MAN', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WAY',
-    'WHO', 'BOY', 'DID', 'ITS', 'LET', 'PUT', 'SAY', 'SHE', 'TOO',
-    'USE', 'ABLE', 'BACK', 'BEEN', 'CALL', 'CAME', 'COME', 'COULD',
-    'EACH', 'EVEN', 'FIND', 'FIRST', 'FROM', 'GIVE', 'GOOD', 'GREAT',
-    'HAND', 'HAVE', 'HERE', 'HIGH', 'INTO', 'JUST', 'KNOW', 'LAST',
-    'LIFE', 'LIKE', 'LINE', 'LONG', 'LOOK', 'MADE', 'MAKE', 'MANY',
-    'MORE', 'MOST', 'MOVE', 'MUCH', 'MUST', 'NAME', 'NEED', 'NEXT',
-    'ONLY', 'OVER', 'PART', 'PLACE', 'SAME', 'SEEM', 'SHOW', 'SIDE',
-    'SOME', 'SUCH', 'TAKE', 'TELL', 'THAN', 'THAT', 'THEM', 'THEN',
-    'THERE', 'THESE', 'THEY', 'THIS', 'TIME', 'VERY', 'WANT', 'WELL',
-    'WENT', 'WERE', 'WHAT', 'WHEN', 'WHERE', 'WHICH', 'WHILE', 'WITH',
-    'WORK', 'WORLD', 'WOULD', 'WRITE', 'YEAR', 'YOUR', 'LOCK', 'UNLOCK',
-    'VAULT', 'BREAK', 'OPEN', 'REVEAL', 'HIDDEN', 'PHRASE', 'CLAIM',
-    'CONTROL', 'TERRITORY', 'AREA', 'ZONE', 'REGION'
-  ];
+  // Normalize: uppercase, trim whitespace
+  const normalized = word.toUpperCase().trim();
   
-  return validWords.includes(word.toUpperCase());
+  if (normalized.length < 3) {
+    console.log('[GameLogic] Word too short:', normalized.length, 'letters');
+    return false;
+  }
+  
+  // Use the comprehensive dictionary from wordMechanics
+  const isValid = validateWord(normalized);
+  
+  console.log('[GameLogic] Word validation result:', isValid, 'for word:', normalized);
+  return isValid;
 }
 
 export function calculateScore(word: string, positions: Position[], board: BoardState): number {
-  console.log('Calculating score for word:', word, 'at positions:', positions);
+  console.log('[GameLogic] Calculating score for word:', word, 'at', positions.length, 'positions');
   let score = 0;
   let multiplier = 1;
   
@@ -137,6 +172,7 @@ export function calculateScore(word: string, positions: Position[], board: Board
   
   score *= multiplier;
   
+  // Length bonuses
   if (word.length >= 6) {
     score += 10;
   }
@@ -144,11 +180,12 @@ export function calculateScore(word: string, positions: Position[], board: Board
     score += 20;
   }
   
+  console.log('[GameLogic] Score calculated:', score, 'points');
   return score;
 }
 
 export function arePositionsAdjacent(positions: Position[]): boolean {
-  console.log('Checking if positions are adjacent:', positions);
+  console.log('[GameLogic] Checking if', positions.length, 'positions are adjacent');
   if (positions.length < 2) {
     return true;
   }
@@ -165,10 +202,12 @@ export function arePositionsAdjacent(positions: Position[]): boolean {
                        (rowDiff === 1 && colDiff === 1);
     
     if (!isAdjacent) {
+      console.log('[GameLogic] Positions not adjacent:', current, next);
       return false;
     }
   }
   
+  console.log('[GameLogic] All positions are adjacent');
   return true;
 }
 
@@ -180,11 +219,11 @@ export function applyWordEffect(
   word?: string,
   lastEffect?: any
 ): { board: BoardState; effects: any[] } {
-  console.log('Applying word effect to board at positions:', positions, 'puzzleMode:', puzzleMode, 'word:', word);
+  console.log('[GameLogic] Applying word effect to board at', positions.length, 'positions, puzzleMode:', puzzleMode, 'word:', word);
   
   // Analyze word to determine effects
   const effects = word ? analyzeWordEffects(word, lastEffect) : [];
-  console.log('Word effects analyzed:', effects.length, 'effects');
+  console.log('[GameLogic] Word effects analyzed:', effects.length, 'effects');
   
   // Apply effects to board
   const updatedBoard = word 
@@ -207,11 +246,11 @@ export function checkWinCondition(
   gameMode: 'solo' | 'multiplayer',
   turnsLeft?: number
 ): GameOutcome {
-  console.log('Checking win condition for puzzle mode:', puzzleMode, 'moves:', movesMade, 'turnsLeft:', turnsLeft);
+  console.log('[GameLogic] Checking win condition for puzzle mode:', puzzleMode, 'moves:', movesMade, 'turnsLeft:', turnsLeft);
   
   // FAIL CONDITION: Run out of turns (solo mode only)
   if (gameMode === 'solo' && turnsLeft !== undefined && turnsLeft <= 0) {
-    console.log('Game lost: ran out of turns');
+    console.log('[GameLogic] Game lost: ran out of turns');
     return GameOutcome.Loss;
   }
   
@@ -226,7 +265,7 @@ export function checkWinCondition(
       const unlockedVaults = requiredVaultTiles.filter(t => !t.isLocked);
       const allVaultsUnlocked = requiredVaultTiles.length > 0 && unlockedVaults.length === requiredVaultTiles.length;
       
-      console.log('Vault Break progress:', unlockedVaults.length, '/', requiredVaultTiles.length);
+      console.log('[GameLogic] Vault Break progress:', unlockedVaults.length, '/', requiredVaultTiles.length);
       
       // WIN CONDITION: All required vaults unlocked
       if (allVaultsUnlocked) {
@@ -235,7 +274,7 @@ export function checkWinCondition(
       
       // FAIL CONDITION: Check if board is irreversibly locked (no more valid moves)
       if (gameMode === 'solo' && isBoardLocked(boardState)) {
-        console.log('Game lost: board irreversibly locked');
+        console.log('[GameLogic] Game lost: board irreversibly locked');
         return GameOutcome.Loss;
       }
       
@@ -247,7 +286,7 @@ export function checkWinCondition(
       const revealedLetters = phraseLetters.filter(t => t.isRevealed);
       const allRevealed = phraseLetters.length > 0 && revealedLetters.length === phraseLetters.length;
       
-      console.log('Hidden Phrase progress:', revealedLetters.length, '/', phraseLetters.length);
+      console.log('[GameLogic] Hidden Phrase progress:', revealedLetters.length, '/', phraseLetters.length);
       
       // WIN CONDITION: All phrase letters revealed
       if (allRevealed) {
@@ -269,7 +308,7 @@ export function checkWinCondition(
       const controlPercentage = (playerControlledTiles.length / totalClaimable) * 100;
       const targetPercentage = winCondition.targetControlPercentage || 60;
       
-      console.log('Territory Control progress:', controlPercentage.toFixed(1), '% (target:', targetPercentage, '%)');
+      console.log('[GameLogic] Territory Control progress:', controlPercentage.toFixed(1), '% (target:', targetPercentage, '%)');
       
       // WIN CONDITION: Reached target control percentage
       if (controlPercentage >= targetPercentage) {
@@ -291,7 +330,7 @@ export function checkWinCondition(
       // Optional: Check efficiency score
       if (winCondition.targetEfficiency && movesMade > 0) {
         const efficiency = currentScore / movesMade;
-        console.log('Efficiency score:', efficiency.toFixed(2), 'target:', winCondition.targetEfficiency);
+        console.log('[GameLogic] Efficiency score:', efficiency.toFixed(2), 'target:', winCondition.targetEfficiency);
       }
       
       return GameOutcome.Playing;
@@ -371,7 +410,7 @@ export function getPuzzleModeProgress(boardState: BoardState, puzzleMode: Puzzle
  * This transforms the board definition into the active game board
  */
 export function convertBoardToGameState(boardMetadata: BoardMetadata): BoardState {
-  console.log('Converting board to game state:', boardMetadata.name, 'puzzleMode:', boardMetadata.puzzleMode);
+  console.log('[GameLogic] Converting board to game state:', boardMetadata.name, 'puzzleMode:', boardMetadata.puzzleMode);
   const { gridSize, initialLayout, puzzleMode } = boardMetadata;
   
   const tiles: Tile[][] = [];
@@ -463,7 +502,7 @@ export function convertBoardToGameState(boardMetadata: BoardMetadata): BoardStat
 /**
  * Generates a random letter based on distribution
  */
-function generateRandomLetter(): string {
+export function generateRandomLetter(): string {
   const letterPool: string[] = [];
   LETTER_DISTRIBUTION.forEach(({ letter, count }) => {
     for (let i = 0; i < count; i++) {
@@ -585,7 +624,7 @@ export function calculateXpEarned(
   isDailyChallenge: boolean = false,
   isSpecialEvent: boolean = false
 ): number {
-  console.log('Calculating XP:', { source, score, wordsFormed, efficiency, isWon, isDailyChallenge, isSpecialEvent });
+  console.log('[GameLogic] Calculating XP:', { source, score, wordsFormed, efficiency, isWon, isDailyChallenge, isSpecialEvent });
   
   let xp = 0;
   
@@ -627,7 +666,7 @@ export function calculateXpEarned(
   // Ensure minimum XP (always reward participation)
   xp = Math.max(10, xp);
   
-  console.log('XP calculated:', xp);
+  console.log('[GameLogic] XP calculated:', xp);
   return xp;
 }
 

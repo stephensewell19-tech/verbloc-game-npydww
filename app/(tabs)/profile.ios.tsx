@@ -456,6 +456,30 @@ export default function ProfileScreen() {
             
             <TouchableOpacity
               style={styles.menuItem}
+              onPress={() => router.push('/diagnostics')}
+              accessibilityLabel="System Diagnostics"
+              accessibilityHint="Double tap to run system diagnostics"
+            >
+              <IconSymbol
+                ios_icon_name="wrench.and.screwdriver.fill"
+                android_material_icon_name="build"
+                size={24}
+                color={colors.success}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>System Diagnostics</Text>
+                <Text style={styles.menuItemSubtitle}>Test core game systems</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.menuItem}
               onPress={() => router.push('/admin-config')}
               accessibilityLabel="Remote Configuration"
               accessibilityHint="Double tap to view feature flags and A/B tests"
