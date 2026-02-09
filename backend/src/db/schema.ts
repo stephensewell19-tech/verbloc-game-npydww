@@ -352,6 +352,67 @@ export const notificationHistoryRelations = relations(notificationHistory, ({ on
   }),
 }));
 
+// Remote configuration table
+export const remoteConfig = pgTable('remote_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  configKey: text('config_key').notNull().unique(),
+  configValue: jsonb('config_value').notNull(),
+  version: integer('version').default(1).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('remote_config_key_idx').on(table.configKey),
+  index('remote_config_is_active_idx').on(table.isActive),
+]);
+
+// Feature flags table
+export const featureFlags = pgTable('feature_flags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  flagName: text('flag_name').notNull().unique(),
+  isEnabled: boolean('is_enabled').default(false).notNull(),
+  description: text('description'),
+  rolloutPercentage: integer('rollout_percentage').default(100).notNull(),
+  targetUserIds: jsonb('target_user_ids').$type<string[]>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('feature_flags_flag_name_idx').on(table.flagName),
+]);
+
+// A/B tests table
+export const abTests = pgTable('ab_tests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  testName: text('test_name').notNull().unique(),
+  isEnabled: boolean('is_enabled').default(false).notNull(),
+  variants: jsonb('variants').$type<string[]>().notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => [
+  index('ab_tests_test_name_idx').on(table.testName),
+]);
+
+// A/B test assignments table
+export const abTestAssignments = pgTable('ab_test_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  testName: text('test_name').notNull(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  variant: text('variant').notNull(),
+  assignedAt: timestamp('assigned_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('ab_test_assignments_test_user_idx').on(table.testName, table.userId),
+  index('ab_test_assignments_user_id_idx').on(table.userId),
+]);
+
+// Relations for A/B test assignments
+export const abTestAssignmentsRelations = relations(abTestAssignments, ({ one }) => ({
+  user: one(user, {
+    fields: [abTestAssignments.userId],
+    references: [user.id],
+  }),
+}));
+
 // Special events table
 export const specialEvents = pgTable('special_events', {
   id: uuid('id').primaryKey().defaultRandom(),

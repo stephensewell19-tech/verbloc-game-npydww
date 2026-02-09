@@ -17,6 +17,7 @@ import { registerSocialInteractionRoutes } from './routes/social-interactions.js
 import { registerSpecialEventsRoutes } from './routes/special-events.js';
 import { registerProgressionRoutes } from './routes/progression.js';
 import { registerPushNotificationRoutes } from './routes/push-notifications.js';
+import { registerRemoteConfigRoutes } from './routes/remote-config.js';
 
 // Combine schemas for full database type support
 const schema = { ...appSchema, ...authSchema };
@@ -47,6 +48,7 @@ registerSocialInteractionRoutes(app);
 registerSpecialEventsRoutes(app);
 registerProgressionRoutes(app);
 registerPushNotificationRoutes(app);
+registerRemoteConfigRoutes(app);
 
 await app.run();
 app.logger.info('VERBLOC backend running');
