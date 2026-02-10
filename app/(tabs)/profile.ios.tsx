@@ -7,7 +7,6 @@ import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats, PlayerProgression } from '@/types/game';
 import { useSubscription } from '@/contexts/SuperwallContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
 import React, { useState, useEffect } from 'react';
 import {
@@ -17,7 +16,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -149,7 +147,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    marginLeft: 8,
+    marginTop: 8,
   },
   premiumText: {
     fontSize: 12,
@@ -164,11 +162,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  errorText: {
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: 8,
   },
   seedButton: {
     backgroundColor: colors.primary,
@@ -343,7 +336,7 @@ export default function ProfileScreen() {
                 />
                 <View style={styles.menuItemContent}>
                   <Text style={styles.menuItemTitle}>Upgrade to Premium</Text>
-                  <Text style={styles.menuItemSubtitle}>Unlock exclusive features</Text>
+                  <Text style={styles.menuItemSubtitle}>Coming soon!</Text>
                 </View>
                 <IconSymbol
                   ios_icon_name="chevron.right"
