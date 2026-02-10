@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +21,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const mountedRef = useRef(false);
-  const initializedRef = useRef(false); // ✅ FIXED: Prevent multiple initializations
+  const initializedRef = useRef(false);
   
   const [loading, setLoading] = useState(false);
   const [activeGames, setActiveGames] = useState<ActiveMultiplayerGame[]>([]);
@@ -38,9 +38,137 @@ export default function HomeScreen() {
   const isRankedModeEnabled = useFeatureFlag('rankedMode');
   const isTournamentModeEnabled = useFeatureFlag('tournamentMode');
 
-  // ✅ FIXED: Initialize only once with proper guards
+  const loadLastMode = useCallback(async () => {
+    const mode = await getLastPlayedMode();
+    console.log('[Home] Last played mode:', mode);
+    if (mountedRef.current) {
+      setLastMode(mode);
+    }
+  }, []);
+
+  const loadPlayerStats = useCallback(async () => {
+    console.log('[Home] Loading player stats...');
+    try {
+      const stats = await authenticatedGet<PlayerStats>('/api/player/stats');
+      
+      if (!stats || typeof stats !== 'object') {
+        console.error('[Home] Invalid stats data received:', stats);
+        throw new Error('Invalid stats data');
+      }
+      
+      console.log('[Home] Player stats loaded:', stats);
+      if (mountedRef.current) {
+        setPlayerStats(stats);
+      }
+    } catch (error: any) {
+      console.error('[Home] Failed to load player stats:', error);
+      
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        console.log('[Home] Attempting to initialize player stats...');
+        try {
+          const { apiPost } = await import('@/utils/api');
+          await apiPost('/api/player/stats/initialize', {});
+          const retryStats = await authenticatedGet<PlayerStats>('/api/player/stats');
+          
+          if (!retryStats || typeof retryStats !== 'object') {
+            console.error('[Home] Invalid retry stats data:', retryStats);
+            throw new Error('Invalid stats data after initialization');
+          }
+          
+          console.log('[Home] Player stats initialized and loaded:', retryStats);
+          if (mountedRef.current) {
+            setPlayerStats(retryStats);
+          }
+        } catch (initError: any) {
+          console.error('[Home] Failed to initialize player stats:', initError);
+          if (mountedRef.current) {
+            setPlayerStats({
+              level: 1,
+              experiencePoints: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+              totalGamesPlayed: 0,
+              totalGamesWon: 0,
+              totalScore: 0,
+              totalWordsFormed: 0,
+            } as PlayerStats);
+          }
+        }
+      } else {
+        if (mountedRef.current) {
+          setPlayerStats({
+            level: 1,
+            experiencePoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            totalScore: 0,
+            totalWordsFormed: 0,
+          } as PlayerStats);
+        }
+      }
+    } finally {
+      if (mountedRef.current) {
+        setStatsLoading(false);
+      }
+    }
+  }, []);
+
+  const loadActiveGames = useCallback(async () => {
+    console.log('[Home] Loading active multiplayer games...');
+    try {
+      const games = await authenticatedGet<ActiveMultiplayerGame[]>('/api/game/multiplayer/active');
+      console.log('[Home] Active games loaded:', games);
+      if (mountedRef.current) {
+        setActiveGames(games);
+      }
+    } catch (error: any) {
+      console.error('[Home] Failed to load active games:', error);
+    }
+  }, []);
+
+  const loadDailyChallenge = useCallback(async () => {
+    console.log('[Home] Loading daily challenge...');
+    if (mountedRef.current) {
+      setDailyChallengeLoading(true);
+    }
+    try {
+      const challenge = await authenticatedGet<DailyChallenge>('/api/daily-challenge/current');
+      console.log('[Home] Daily challenge loaded:', challenge);
+      if (mountedRef.current) {
+        setDailyChallenge(challenge);
+      }
+    } catch (error: any) {
+      console.error('[Home] Failed to load daily challenge:', error);
+    } finally {
+      if (mountedRef.current) {
+        setDailyChallengeLoading(false);
+      }
+    }
+  }, []);
+
+  const loadSpecialEvents = useCallback(async () => {
+    console.log('[Home] Loading special events...');
+    if (mountedRef.current) {
+      setSpecialEventsLoading(true);
+    }
+    try {
+      const events = await authenticatedGet<CurrentSpecialEvents>('/api/special-events/current');
+      console.log('[Home] Special events loaded:', events);
+      if (mountedRef.current) {
+        setSpecialEvents(events);
+      }
+    } catch (error: any) {
+      console.error('[Home] Failed to load special events:', error);
+    } finally {
+      if (mountedRef.current) {
+        setSpecialEventsLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    // Prevent multiple initializations
     if (initializedRef.current) {
       console.log('[Home] Already initialized, skipping duplicate init');
       return;
@@ -61,19 +189,15 @@ export default function HomeScreen() {
     loadSpecialEvents();
     loadLastMode();
     
-    // Register for push notifications
     registerForPushNotifications();
     
-    // Set up notification listeners
     const cleanup = setupNotificationListeners(
       (notification) => {
         console.log('[Home] Notification received:', notification);
-        // Reload active games when notification received
         loadActiveGames();
       },
       (response) => {
         console.log('[Home] Notification tapped:', response);
-        // Navigate to game if notification contains gameId
         const gameId = response.notification.request.content.data?.gameId;
         if (gameId) {
           router.push(`/multiplayer-game?gameId=${gameId}`);
@@ -86,143 +210,7 @@ export default function HomeScreen() {
       mountedRef.current = false;
       cleanup();
     };
-  }, []); // ✅ FIXED: Empty dependency array - router is stable
-
-  const loadLastMode = async () => {
-    const mode = await getLastPlayedMode();
-    console.log('[Home] Last played mode:', mode);
-    if (mountedRef.current) {
-      setLastMode(mode);
-    }
-  };
-
-  const loadPlayerStats = async () => {
-    console.log('[Home] Loading player stats...');
-    try {
-      const stats = await authenticatedGet<PlayerStats>('/api/player/stats');
-      
-      // Safety check: Validate stats data
-      if (!stats || typeof stats !== 'object') {
-        console.error('[Home] Invalid stats data received:', stats);
-        throw new Error('Invalid stats data');
-      }
-      
-      console.log('[Home] Player stats loaded:', stats);
-      if (mountedRef.current) {
-        setPlayerStats(stats);
-      }
-    } catch (error: any) {
-      console.error('[Home] Failed to load player stats:', error);
-      
-      // Try to initialize stats if they don't exist
-      if (error.message?.includes('not found') || error.message?.includes('404')) {
-        console.log('[Home] Attempting to initialize player stats...');
-        try {
-          const { apiPost } = await import('@/utils/api');
-          await apiPost('/api/player/stats/initialize', {});
-          // Retry fetching stats
-          const retryStats = await authenticatedGet<PlayerStats>('/api/player/stats');
-          
-          // Safety check: Validate retry stats
-          if (!retryStats || typeof retryStats !== 'object') {
-            console.error('[Home] Invalid retry stats data:', retryStats);
-            throw new Error('Invalid stats data after initialization');
-          }
-          
-          console.log('[Home] Player stats initialized and loaded:', retryStats);
-          if (mountedRef.current) {
-            setPlayerStats(retryStats);
-          }
-        } catch (initError: any) {
-          console.error('[Home] Failed to initialize player stats:', initError);
-          // Set safe default stats to prevent UI crashes
-          if (mountedRef.current) {
-            setPlayerStats({
-              level: 1,
-              experiencePoints: 0,
-              currentStreak: 0,
-              longestStreak: 0,
-              totalGamesPlayed: 0,
-              totalGamesWon: 0,
-              totalScore: 0,
-              totalWordsFormed: 0,
-            } as PlayerStats);
-          }
-        }
-      } else {
-        // Set safe default stats for other errors
-        if (mountedRef.current) {
-          setPlayerStats({
-            level: 1,
-            experiencePoints: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            totalGamesPlayed: 0,
-            totalGamesWon: 0,
-            totalScore: 0,
-            totalWordsFormed: 0,
-          } as PlayerStats);
-        }
-      }
-    } finally {
-      if (mountedRef.current) {
-        setStatsLoading(false);
-      }
-    }
-  };
-
-  const loadActiveGames = async () => {
-    console.log('[Home] Loading active multiplayer games...');
-    try {
-      const games = await authenticatedGet<ActiveMultiplayerGame[]>('/api/game/multiplayer/active');
-      console.log('[Home] Active games loaded:', games);
-      if (mountedRef.current) {
-        setActiveGames(games);
-      }
-    } catch (error: any) {
-      console.error('[Home] Failed to load active games:', error);
-    }
-  };
-
-  const loadDailyChallenge = async () => {
-    console.log('[Home] Loading daily challenge...');
-    if (mountedRef.current) {
-      setDailyChallengeLoading(true);
-    }
-    try {
-      const challenge = await authenticatedGet<DailyChallenge>('/api/daily-challenge/current');
-      console.log('[Home] Daily challenge loaded:', challenge);
-      if (mountedRef.current) {
-        setDailyChallenge(challenge);
-      }
-    } catch (error: any) {
-      console.error('[Home] Failed to load daily challenge:', error);
-    } finally {
-      if (mountedRef.current) {
-        setDailyChallengeLoading(false);
-      }
-    }
-  };
-
-  const loadSpecialEvents = async () => {
-    console.log('[Home] Loading special events...');
-    if (mountedRef.current) {
-      setSpecialEventsLoading(true);
-    }
-    try {
-      const events = await authenticatedGet<CurrentSpecialEvents>('/api/special-events/current');
-      console.log('[Home] Special events loaded:', events);
-      if (mountedRef.current) {
-        setSpecialEvents(events);
-      }
-    } catch (error: any) {
-      console.error('[Home] Failed to load special events:', error);
-    } finally {
-      if (mountedRef.current) {
-        setSpecialEventsLoading(false);
-      }
-    }
-  };
+  }, [loadPlayerStats, loadActiveGames, loadDailyChallenge, loadSpecialEvents, loadLastMode, router]);
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button - navigating to board selection');
@@ -281,7 +269,6 @@ export default function HomeScreen() {
   const currentXP = playerStats?.experiencePoints || 0;
   const currentStreak = playerStats?.currentStreak || 0;
   
-  // Calculate XP progress using the same formula as backend: level = floor(sqrt(xp / 100))
   const xpForCurrentLevel = currentLevel * currentLevel * 100;
   const xpForNextLevel = (currentLevel + 1) * (currentLevel + 1) * 100;
   const xpProgress = currentXP - xpForCurrentLevel;
@@ -296,12 +283,10 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header with Player Info */}
         <View style={styles.header}>
           <Text style={styles.logo}>VERBLOC</Text>
           <Text style={styles.tagline}>Form words. Change the board. Win.</Text>
           
-          {/* Player Level and Streak */}
           {statsLoading ? (
             <View style={styles.playerInfoLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -341,7 +326,6 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 
-                {/* XP Progress Bar */}
                 <View style={styles.xpContainer}>
                   <View style={styles.xpBar}>
                     <View style={[styles.xpProgress, { width: `${progressPercentage}%` }]} />
@@ -353,7 +337,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Daily Challenge Card */}
         <View style={styles.dailyChallengeContainer}>
           <Text style={styles.sectionTitle}>Daily Challenge</Text>
           <DailyChallengeCard
@@ -363,7 +346,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Special Events Card */}
         <View style={styles.specialEventsContainer}>
           <Text style={styles.sectionTitle}>Special Events</Text>
           <SpecialEventsCard
@@ -373,12 +355,10 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Main Play Buttons - Unified Presentation */}
         <View style={styles.playButtonsContainer}>
           <Text style={styles.sectionTitle}>Play VERBLOC</Text>
           <Text style={styles.sectionSubtitle}>Two ways to enjoy the same great game</Text>
           
-          {/* Show last played mode first if available */}
           {lastMode === 'solo' ? (
             <>
               <TouchableOpacity
@@ -527,7 +507,6 @@ export default function HomeScreen() {
             </>
           ) : (
             <>
-              {/* Default: Show both equally */}
               <TouchableOpacity
                 style={[styles.playButton, styles.primaryButton]}
                 onPress={handlePlaySolo}
@@ -597,7 +576,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Active Games Indicator */}
         {activeGames.length > 0 && (
           <View style={styles.activeGamesContainer}>
             <View style={styles.activeGamesCard}>
@@ -614,7 +592,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Future Features - Enabled via Feature Flags */}
         {(isRankedModeEnabled || isTournamentModeEnabled) && (
           <View style={styles.futureModesContainer}>
             <Text style={styles.sectionTitle}>Competitive Play</Text>
@@ -625,7 +602,6 @@ export default function HomeScreen() {
                 style={styles.featureButton}
                 onPress={() => {
                   console.log('[Home] User tapped Ranked Mode button');
-                  // TODO: Navigate to ranked mode when implemented
                   alert('Ranked Mode coming soon!');
                 }}
                 activeOpacity={0.85}
@@ -668,7 +644,6 @@ export default function HomeScreen() {
                 style={styles.featureButton}
                 onPress={() => {
                   console.log('[Home] User tapped Tournament Mode button');
-                  // TODO: Navigate to tournament mode when implemented
                   alert('Tournament Mode coming soon!');
                 }}
                 activeOpacity={0.85}
@@ -708,7 +683,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Difficulty Progression Guide */}
         <View style={styles.difficultyProgressContainer}>
           <Text style={styles.sectionTitle}>Difficulty Tiers</Text>
           <View style={styles.difficultyProgressCard}>
@@ -766,7 +740,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Quick Tip */}
         <View style={styles.tipContainer}>
           <View style={styles.tipCard}>
             <IconSymbol
