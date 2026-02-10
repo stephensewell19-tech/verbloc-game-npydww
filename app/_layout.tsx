@@ -28,8 +28,10 @@ function RootLayoutContent() {
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       try {
+        console.log('[RootLayout] Checking onboarding status');
         const completed = await AsyncStorage.getItem(ONBOARDING_KEY);
         setIsOnboardingComplete(completed === 'true');
+        console.log('[RootLayout] Onboarding complete:', completed === 'true');
       } catch (error) {
         console.error('[RootLayout] Failed to check onboarding status:', error);
         setIsOnboardingComplete(false);
@@ -41,6 +43,7 @@ function RootLayoutContent() {
 
   useEffect(() => {
     if (fontsLoaded && isOnboardingComplete !== null && !isReady) {
+      console.log('[RootLayout] App ready, hiding splash screen');
       setIsReady(true);
       SplashScreen.hideAsync();
     }

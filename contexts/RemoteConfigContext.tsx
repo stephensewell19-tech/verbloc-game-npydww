@@ -18,15 +18,25 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(false);
+  const initializingRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
     console.log('[RemoteConfig] Component mounted, loading config');
     
+    // Prevent multiple simultaneous initializations
+    if (initializingRef.current) {
+      console.log('[RemoteConfig] Already initializing, skipping duplicate init');
+      return;
+    }
+    
+    initializingRef.current = true;
+    
     const loadConfig = async () => {
       try {
         if (!mountedRef.current) {
           console.log('[RemoteConfig] Skipping load - component not mounted yet');
+          initializingRef.current = false;
           return;
         }
         
@@ -39,6 +49,7 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
         
         if (!mountedRef.current) {
           console.log('[RemoteConfig] Component unmounted during load, skipping state update');
+          initializingRef.current = false;
           return;
         }
         
@@ -54,6 +65,7 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
         if (mountedRef.current) {
           setLoading(false);
         }
+        initializingRef.current = false;
       }
     };
 
@@ -62,6 +74,7 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log('[RemoteConfig] Component unmounting, cleaning up');
       mountedRef.current = false;
+      initializingRef.current = false;
     };
   }, []);
 

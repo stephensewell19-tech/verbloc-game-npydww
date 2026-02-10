@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(false);
+  const initializingRef = useRef(false);
 
   const fetchUser = async () => {
     try {
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearAuthTokens();
       }
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      console.error("[Auth] Failed to fetch user:", error);
       if (mountedRef.current) {
         setUser(null);
       }
@@ -117,16 +118,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mountedRef.current = true;
     console.log('[Auth] Component mounted, initializing auth');
     
+    // Prevent multiple simultaneous initializations
+    if (initializingRef.current) {
+      console.log('[Auth] Already initializing, skipping duplicate init');
+      return;
+    }
+    
+    initializingRef.current = true;
+    
     // Initial fetch after mount
     const initAuth = async () => {
       await fetchUser();
+      initializingRef.current = false;
     };
     
     initAuth();
 
     // Listen for deep links (e.g. from social auth redirects)
     const subscription = Linking.addEventListener("url", (event) => {
-      console.log("Deep link received, refreshing user session");
+      console.log("[Auth] Deep link received, refreshing user session");
       // Allow time for the client to process the token if needed
       setTimeout(() => {
         if (mountedRef.current) {
@@ -138,8 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
     // This prevents 401 errors when the session token rotates
     const intervalId = setInterval(() => {
-      if (mountedRef.current) {
-        console.log("Auto-refreshing user session to sync token...");
+      if (mountedRef.current && !initializingRef.current) {
+        console.log("[Auth] Auto-refreshing user session to sync token...");
         fetchUser();
       }
     }, 5 * 60 * 1000); // 5 minutes
@@ -147,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log('[Auth] Component unmounting, cleaning up');
       mountedRef.current = false;
+      initializingRef.current = false;
       subscription.remove();
       clearInterval(intervalId);
     };
@@ -157,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authClient.signIn.email({ email, password });
       await fetchUser();
     } catch (error) {
-      console.error("Email sign in failed:", error);
+      console.error("[Auth] Email sign in failed:", error);
       throw error;
     }
   };
@@ -181,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Don't throw - user is created, stats can be initialized later
       }
     } catch (error) {
-      console.error("Email sign up failed:", error);
+      console.error("[Auth] Email sign up failed:", error);
       throw error;
     }
   };
@@ -202,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUser();
       }
     } catch (error) {
-      console.error(`${provider} sign in failed:`, error);
+      console.error(`[Auth] ${provider} sign in failed:`, error);
       throw error;
     }
   };
@@ -215,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authClient.signOut();
     } catch (error) {
-      console.error("Sign out failed (API):", error);
+      console.error("[Auth] Sign out failed (API):", error);
     } finally {
        // Always clear local state
        if (mountedRef.current) {
