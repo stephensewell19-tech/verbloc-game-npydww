@@ -33,8 +33,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
     try {
       // Only use expo-updates on native platforms
       if (Platform.OS !== 'web') {
-        const Updates = await import('expo-updates');
-        await Updates.reloadAsync();
+        try {
+          // Dynamic import to prevent 'Unable to resolve path to module' error
+          const Updates = await import('expo-updates');
+          await Updates.reloadAsync();
+        } catch (importError) {
+          console.error('[ErrorBoundary] expo-updates not available:', importError);
+          // Fallback: Reset error state to try again
+          this.setState({ hasError: false, error: null });
+        }
       } else {
         // On web, just reload the page
         if (typeof window !== 'undefined') {

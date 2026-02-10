@@ -43,27 +43,12 @@ function resolveImageSource(source: string | number | any): any {
 }
 
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
-  // Initialize hooks unconditionally at the top
+  // ✅ FIXED: All hooks are now called unconditionally at the top level
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const glow = useSharedValue(0);
 
-  // Safety check: Ensure tile exists
-  if (!tile) {
-    console.error('[TileComponent] Tile is null or undefined');
-    return (
-      <View style={[styles.tile, { width: size, height: size, backgroundColor: '#333' }]}>
-        <Text style={styles.errorText}>?</Text>
-      </View>
-    );
-  }
-  
-  // Safety check: Ensure size is valid
-  if (!size || size <= 0 || !isFinite(size)) {
-    console.error('[TileComponent] Invalid size:', size);
-    return null;
-  }
-
+  // Animation effect for selection
   useEffect(() => {
     try {
       if (selected) {
@@ -80,6 +65,7 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     }
   }, [selected, glow]);
 
+  // Animated style for tile
   const animatedStyle = useAnimatedStyle(() => {
     const glowOpacity = interpolate(
       glow.value,
@@ -103,6 +89,22 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
       boxShadow: `0px 4px ${glowRadius}px rgba(0, 0, 0, ${glowOpacity})`,
     };
   });
+
+  // Safety check: Ensure tile exists (after all hooks are called)
+  if (!tile) {
+    console.error('[TileComponent] Tile is null or undefined');
+    return (
+      <View style={[styles.tile, { width: size, height: size, backgroundColor: '#333' }]}>
+        <Text style={styles.errorText}>?</Text>
+      </View>
+    );
+  }
+  
+  // Safety check: Ensure size is valid
+  if (!size || size <= 0 || !isFinite(size)) {
+    console.error('[TileComponent] Invalid size:', size);
+    return null;
+  }
 
   function handlePress() {
     console.log('[TileComponent] Tile pressed, disabled:', disabled, 'locked:', tile.isLocked);
