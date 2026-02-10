@@ -86,7 +86,7 @@ export default function HomeScreen() {
       mountedRef.current = false;
       cleanup();
     };
-  }, []); // ✅ FIXED: Empty dependency array - only run once
+  }, []); // ✅ FIXED: Empty dependency array - router is stable
 
   const loadLastMode = async () => {
     const mode = await getLastPlayedMode();

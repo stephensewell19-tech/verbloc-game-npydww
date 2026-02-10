@@ -270,7 +270,7 @@ export default function GameScreen() {
     } else {
       startNewGame();
     }
-  }, []); // ✅ FIXED: Empty dependency array - only run once on mount
+  }, [gameId, gameMode, gridSize, loadExistingGame, params, startNewGame, turnLimit]); // ✅ FIXED: Include all dependencies
 
   function handleTilePress(row: number, col: number) {
     console.log('[Game] Tile pressed:', row, col);

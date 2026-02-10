@@ -34,7 +34,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       // Only use expo-updates on native platforms
       if (Platform.OS !== 'web') {
         try {
-          // Dynamic import to prevent 'Unable to resolve path to module' error
+          // Dynamic import to prevent module resolution errors
           const Updates = await import('expo-updates');
           await Updates.reloadAsync();
         } catch (importError) {

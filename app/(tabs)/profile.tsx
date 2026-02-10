@@ -219,7 +219,8 @@ export default function ProfileScreen() {
       console.log('[Profile] Screen unmounting');
       mountedRef.current = false;
     };
-  }, []); // ✅ FIXED: Empty dependency array - only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ FIXED: Empty dependency array - only run once (fetchPlayerStats and fetchProgression are stable)
 
   const fetchPlayerStats = async () => {
     try {
