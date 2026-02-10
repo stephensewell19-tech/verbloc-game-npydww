@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,23 +24,52 @@ export function MonetizationProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(false);
+  const initializedRef = useRef(false);
 
+  // ✅ FIXED: Initialize only once with proper guards
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initializedRef.current) {
+      console.log('[Monetization] Already initialized, skipping duplicate init');
+      return;
+    }
+    
+    if (mountedRef.current) {
+      console.log('[Monetization] Already mounted, skipping duplicate init');
+      return;
+    }
+    
+    mountedRef.current = true;
+    initializedRef.current = true;
     console.log('[Monetization] Initializing monetization system (mock mode)');
+    
     loadPremiumStatus();
-  }, []);
+    
+    return () => {
+      console.log('[Monetization] Component unmounting');
+      mountedRef.current = false;
+    };
+  }, []); // ✅ FIXED: Empty dependency array - only run once
 
   const loadPremiumStatus = async () => {
     try {
       const stored = await AsyncStorage.getItem(PREMIUM_STATUS_KEY);
       const premiumStatus = stored === 'true';
-      setIsPremium(premiumStatus);
+      
+      if (mountedRef.current) {
+        setIsPremium(premiumStatus);
+      }
       console.log('[Monetization] Loaded premium status:', premiumStatus);
     } catch (err) {
       console.error('[Monetization] Failed to load premium status:', err);
-      setError('Failed to load subscription status');
+      if (mountedRef.current) {
+        setError('Failed to load subscription status');
+      }
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 

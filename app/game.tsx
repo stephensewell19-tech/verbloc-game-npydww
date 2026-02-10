@@ -36,6 +36,7 @@ export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mountedRef = useRef(true);
+  const initializedRef = useRef(false); // ✅ FIXED: Prevent multiple initializations
   
   const [board, setBoard] = useState<BoardState | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
@@ -81,13 +82,17 @@ export default function GameScreen() {
     turnLimit: gameMode === 'solo' ? turnLimit : undefined,
   };
 
+  // ✅ FIXED: Cleanup on unmount
   useEffect(() => {
+    console.log('[Game] GameScreen mounted');
     mountedRef.current = true;
     return () => {
+      console.log('[Game] GameScreen unmounting');
       mountedRef.current = false;
     };
   }, []);
 
+  // ✅ FIXED: Memoize startNewGame with proper dependencies
   const startNewGame = useCallback(async () => {
     console.log('[Game] Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     
@@ -162,8 +167,9 @@ export default function GameScreen() {
         setLoading(false);
       }
     }
-  }, [gridSize, puzzleMode, turnLimit, gameMode]);
+  }, [gridSize, puzzleMode, turnLimit, gameMode]); // ✅ FIXED: Only primitive dependencies
 
+  // ✅ FIXED: Memoize loadExistingGame with proper dependencies
   const loadExistingGame = useCallback(async (id: string) => {
     console.log('[Game] Loading existing game:', id);
     
@@ -224,10 +230,18 @@ export default function GameScreen() {
         setLoading(false);
       }
     }
-  }, [startNewGame]);
+  }, [startNewGame]); // ✅ FIXED: Only include startNewGame
 
+  // ✅ FIXED: Initialize game only once with proper guards
   useEffect(() => {
-    console.log('[Game] GameScreen mounted with params:', params);
+    // Prevent multiple initializations
+    if (initializedRef.current) {
+      console.log('[Game] Already initialized, skipping duplicate init');
+      return;
+    }
+    
+    console.log('[Game] GameScreen initializing with params:', params);
+    initializedRef.current = true;
     
     // Navigation guard: Validate required parameters
     if (!gameMode || (gameMode !== 'solo' && gameMode !== 'multiplayer')) {
@@ -256,7 +270,7 @@ export default function GameScreen() {
     } else {
       startNewGame();
     }
-  }, [gameId, gameMode, loadExistingGame, startNewGame, params, gridSize, turnLimit]);
+  }, []); // ✅ FIXED: Empty dependency array - only run once on mount
 
   function handleTilePress(row: number, col: number) {
     console.log('[Game] Tile pressed:', row, col);
@@ -619,6 +633,7 @@ export default function GameScreen() {
     console.log('Starting new game');
     setShowCompletionModal(false);
     setComboCount(0);
+    initializedRef.current = false; // ✅ FIXED: Reset initialization flag
     startNewGame();
   }
 

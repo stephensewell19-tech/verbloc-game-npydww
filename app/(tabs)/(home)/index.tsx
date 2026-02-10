@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +20,9 @@ import { useFeatureFlag } from '@/hooks/useFeatureFlag';
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const mountedRef = useRef(false);
+  const initializedRef = useRef(false); // ✅ FIXED: Prevent multiple initializations
+  
   const [loading, setLoading] = useState(false);
   const [activeGames, setActiveGames] = useState<ActiveMultiplayerGame[]>([]);
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
@@ -35,8 +38,23 @@ export default function HomeScreen() {
   const isRankedModeEnabled = useFeatureFlag('rankedMode');
   const isTournamentModeEnabled = useFeatureFlag('tournamentMode');
 
+  // ✅ FIXED: Initialize only once with proper guards
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initializedRef.current) {
+      console.log('[Home] Already initialized, skipping duplicate init');
+      return;
+    }
+    
+    if (mountedRef.current) {
+      console.log('[Home] Already mounted, skipping duplicate init');
+      return;
+    }
+    
+    mountedRef.current = true;
+    initializedRef.current = true;
     console.log('[Home] Home screen mounted');
+    
     loadPlayerStats();
     loadActiveGames();
     loadDailyChallenge();
@@ -63,14 +81,19 @@ export default function HomeScreen() {
       }
     );
     
-    return cleanup;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      console.log('[Home] Home screen unmounting');
+      mountedRef.current = false;
+      cleanup();
+    };
+  }, []); // ✅ FIXED: Empty dependency array - only run once
 
   const loadLastMode = async () => {
     const mode = await getLastPlayedMode();
     console.log('[Home] Last played mode:', mode);
-    setLastMode(mode);
+    if (mountedRef.current) {
+      setLastMode(mode);
+    }
   };
 
   const loadPlayerStats = async () => {
@@ -85,7 +108,9 @@ export default function HomeScreen() {
       }
       
       console.log('[Home] Player stats loaded:', stats);
-      setPlayerStats(stats);
+      if (mountedRef.current) {
+        setPlayerStats(stats);
+      }
     } catch (error: any) {
       console.error('[Home] Failed to load player stats:', error);
       
@@ -105,10 +130,28 @@ export default function HomeScreen() {
           }
           
           console.log('[Home] Player stats initialized and loaded:', retryStats);
-          setPlayerStats(retryStats);
+          if (mountedRef.current) {
+            setPlayerStats(retryStats);
+          }
         } catch (initError: any) {
           console.error('[Home] Failed to initialize player stats:', initError);
           // Set safe default stats to prevent UI crashes
+          if (mountedRef.current) {
+            setPlayerStats({
+              level: 1,
+              experiencePoints: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+              totalGamesPlayed: 0,
+              totalGamesWon: 0,
+              totalScore: 0,
+              totalWordsFormed: 0,
+            } as PlayerStats);
+          }
+        }
+      } else {
+        // Set safe default stats for other errors
+        if (mountedRef.current) {
           setPlayerStats({
             level: 1,
             experiencePoints: 0,
@@ -120,21 +163,11 @@ export default function HomeScreen() {
             totalWordsFormed: 0,
           } as PlayerStats);
         }
-      } else {
-        // Set safe default stats for other errors
-        setPlayerStats({
-          level: 1,
-          experiencePoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          totalGamesPlayed: 0,
-          totalGamesWon: 0,
-          totalScore: 0,
-          totalWordsFormed: 0,
-        } as PlayerStats);
       }
     } finally {
-      setStatsLoading(false);
+      if (mountedRef.current) {
+        setStatsLoading(false);
+      }
     }
   };
 
@@ -143,7 +176,9 @@ export default function HomeScreen() {
     try {
       const games = await authenticatedGet<ActiveMultiplayerGame[]>('/api/game/multiplayer/active');
       console.log('[Home] Active games loaded:', games);
-      setActiveGames(games);
+      if (mountedRef.current) {
+        setActiveGames(games);
+      }
     } catch (error: any) {
       console.error('[Home] Failed to load active games:', error);
     }
@@ -151,29 +186,41 @@ export default function HomeScreen() {
 
   const loadDailyChallenge = async () => {
     console.log('[Home] Loading daily challenge...');
-    setDailyChallengeLoading(true);
+    if (mountedRef.current) {
+      setDailyChallengeLoading(true);
+    }
     try {
       const challenge = await authenticatedGet<DailyChallenge>('/api/daily-challenge/current');
       console.log('[Home] Daily challenge loaded:', challenge);
-      setDailyChallenge(challenge);
+      if (mountedRef.current) {
+        setDailyChallenge(challenge);
+      }
     } catch (error: any) {
       console.error('[Home] Failed to load daily challenge:', error);
     } finally {
-      setDailyChallengeLoading(false);
+      if (mountedRef.current) {
+        setDailyChallengeLoading(false);
+      }
     }
   };
 
   const loadSpecialEvents = async () => {
     console.log('[Home] Loading special events...');
-    setSpecialEventsLoading(true);
+    if (mountedRef.current) {
+      setSpecialEventsLoading(true);
+    }
     try {
       const events = await authenticatedGet<CurrentSpecialEvents>('/api/special-events/current');
       console.log('[Home] Special events loaded:', events);
-      setSpecialEvents(events);
+      if (mountedRef.current) {
+        setSpecialEvents(events);
+      }
     } catch (error: any) {
       console.error('[Home] Failed to load special events:', error);
     } finally {
-      setSpecialEventsLoading(false);
+      if (mountedRef.current) {
+        setSpecialEventsLoading(false);
+      }
     }
   };
 

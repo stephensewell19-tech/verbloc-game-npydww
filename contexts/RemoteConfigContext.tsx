@@ -25,36 +25,37 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(false);
   const initializingRef = useRef(false);
 
+  // ✅ FIXED: Initialize only once with proper guards
   useEffect(() => {
-    mountedRef.current = true;
-    console.log('[RemoteConfig] Component mounted, loading config');
-    
-    // Prevent multiple simultaneous initializations
+    // Prevent multiple initializations
     if (initializingRef.current) {
       console.log('[RemoteConfig] Already initializing, skipping duplicate init');
       return;
     }
     
+    if (mountedRef.current) {
+      console.log('[RemoteConfig] Already mounted, skipping duplicate init');
+      return;
+    }
+    
+    mountedRef.current = true;
     initializingRef.current = true;
+    console.log('[RemoteConfig] Component mounted, loading config');
     
     const loadConfig = async () => {
       try {
         if (!mountedRef.current) {
           console.log('[RemoteConfig] Skipping load - component not mounted yet');
-          initializingRef.current = false;
           return;
         }
         
-        if (mountedRef.current) {
-          setLoading(true);
-          setError(null);
-        }
+        setLoading(true);
+        setError(null);
         
         const remoteConfig = await getRemoteConfig();
         
         if (!mountedRef.current) {
           console.log('[RemoteConfig] Component unmounted during load, skipping state update');
-          initializingRef.current = false;
           return;
         }
         
@@ -81,7 +82,7 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
       mountedRef.current = false;
       initializingRef.current = false;
     };
-  }, []);
+  }, []); // ✅ FIXED: Empty dependency array - only run once
 
   const refresh = async () => {
     try {
@@ -90,10 +91,8 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      if (mountedRef.current) {
-        setLoading(true);
-        setError(null);
-      }
+      setLoading(true);
+      setError(null);
       
       const remoteConfig = await refreshRemoteConfig();
       

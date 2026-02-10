@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats, PlayerProgression } from '@/types/game';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import {
@@ -185,6 +185,9 @@ const styles = StyleSheet.create({
 export default function ProfileScreen() {
   const { isPremium, showPaywall } = useMonetization();
   const { user, signOut } = useAuth();
+  const mountedRef = useRef(false);
+  const initializedRef = useRef(false); // ✅ FIXED: Prevent multiple initializations
+  
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,16 +195,38 @@ export default function ProfileScreen() {
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const router = useRouter();
 
+  // ✅ FIXED: Initialize only once with proper guards
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initializedRef.current) {
+      console.log('[Profile] Already initialized, skipping duplicate init');
+      return;
+    }
+    
+    if (mountedRef.current) {
+      console.log('[Profile] Already mounted, skipping duplicate init');
+      return;
+    }
+    
+    mountedRef.current = true;
+    initializedRef.current = true;
     console.log('[Profile] Screen mounted, loading data');
+    
     fetchPlayerStats();
     fetchProgression();
-  }, []);
+    
+    return () => {
+      console.log('[Profile] Screen unmounting');
+      mountedRef.current = false;
+    };
+  }, []); // ✅ FIXED: Empty dependency array - only run once
 
   const fetchPlayerStats = async () => {
     try {
       const data = await authenticatedGet<PlayerStats>('/api/player-stats');
-      setStats(data);
+      if (mountedRef.current) {
+        setStats(data);
+      }
       console.log('[Profile] Loaded player stats:', data);
     } catch (error) {
       console.error('[Profile] Failed to load stats:', error);
@@ -211,12 +236,16 @@ export default function ProfileScreen() {
   const fetchProgression = async () => {
     try {
       const data = await authenticatedGet<PlayerProgression>('/api/progression');
-      setProgression(data);
+      if (mountedRef.current) {
+        setProgression(data);
+      }
       console.log('[Profile] Loaded progression:', data);
     } catch (error) {
       console.error('[Profile] Failed to load progression:', error);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -553,7 +582,7 @@ export default function ProfileScreen() {
         }}
         secondaryButton={{
           text: 'Cancel',
-          onPress: () => setShowSignOutModal(false),
+          onPress={() => setShowSignOutModal(false),
         }}
       />
     </>
