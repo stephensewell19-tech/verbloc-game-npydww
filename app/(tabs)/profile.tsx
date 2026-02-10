@@ -1,7 +1,7 @@
 
 import { Modal } from '@/components/button';
 import { IconSymbol } from '@/components/IconSymbol';
-import { useSubscription } from '@/contexts/SuperwallContext';
+import { useMonetization } from '@/contexts/MonetizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet, apiPost } from '@/utils/api';
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const { isPremium, showPaywall } = useSubscription();
+  const { isPremium, showPaywall } = useMonetization();
   const { user, signOut } = useAuth();
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
@@ -193,6 +193,7 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('[Profile] Screen mounted, loading data');
     fetchPlayerStats();
     fetchProgression();
   }, []);
@@ -220,6 +221,7 @@ export default function ProfileScreen() {
   };
 
   const handleSeedBoards = async () => {
+    console.log('[Profile] User tapped Seed Production Boards');
     setSeeding(true);
     try {
       const response = await apiPost('/api/boards/seed-production', {});
@@ -237,7 +239,7 @@ export default function ProfileScreen() {
     try {
       console.log('[Profile] User initiated sign out');
       await signOut();
-      console.log('[Profile] Sign out successful');
+      console.log('[Profile] Sign out successful, navigating to auth');
       router.replace('/auth');
     } catch (error) {
       console.error('[Profile] Sign out failed:', error);
@@ -245,6 +247,11 @@ export default function ProfileScreen() {
     } finally {
       setShowSignOutModal(false);
     }
+  };
+
+  const handlePremiumPress = () => {
+    console.log('[Profile] User tapped Upgrade to Premium');
+    router.push('/subscription');
   };
 
   if (loading) {
@@ -324,7 +331,7 @@ export default function ProfileScreen() {
             {!isPremium && (
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={showPaywall}
+                onPress={handlePremiumPress}
                 accessibilityLabel="Upgrade to Premium"
                 accessibilityHint="Double tap to view premium subscription options"
               >

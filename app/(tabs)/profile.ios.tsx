@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet, apiPost } from '@/utils/api';
 import { PlayerStats, PlayerProgression } from '@/types/game';
-import { useSubscription } from '@/contexts/SuperwallContext';
+import { useMonetization } from '@/contexts/MonetizationContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import React, { useState, useEffect } from 'react';
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const { isPremium, showPaywall } = useSubscription();
+  const { isPremium, showPaywall } = useMonetization();
   const { user, signOut } = useAuth();
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [progression, setProgression] = useState<PlayerProgression | null>(null);
@@ -193,6 +193,7 @@ export default function ProfileScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('[Profile iOS] Screen mounted, loading data');
     fetchPlayerStats();
     fetchProgression();
   }, []);
@@ -201,9 +202,9 @@ export default function ProfileScreen() {
     try {
       const data = await authenticatedGet<PlayerStats>('/api/player-stats');
       setStats(data);
-      console.log('[Profile] Loaded player stats:', data);
+      console.log('[Profile iOS] Loaded player stats:', data);
     } catch (error) {
-      console.error('[Profile] Failed to load stats:', error);
+      console.error('[Profile iOS] Failed to load stats:', error);
     }
   };
 
@@ -211,22 +212,23 @@ export default function ProfileScreen() {
     try {
       const data = await authenticatedGet<PlayerProgression>('/api/progression');
       setProgression(data);
-      console.log('[Profile] Loaded progression:', data);
+      console.log('[Profile iOS] Loaded progression:', data);
     } catch (error) {
-      console.error('[Profile] Failed to load progression:', error);
+      console.error('[Profile iOS] Failed to load progression:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSeedBoards = async () => {
+    console.log('[Profile iOS] User tapped Seed Production Boards');
     setSeeding(true);
     try {
       const response = await apiPost('/api/boards/seed-production', {});
-      console.log('[Profile] Seeded boards:', response);
+      console.log('[Profile iOS] Seeded boards:', response);
       alert('Production boards seeded successfully!');
     } catch (error) {
-      console.error('[Profile] Failed to seed boards:', error);
+      console.error('[Profile iOS] Failed to seed boards:', error);
       alert('Failed to seed boards. Please try again.');
     } finally {
       setSeeding(false);
@@ -235,16 +237,21 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
-      console.log('[Profile] User initiated sign out');
+      console.log('[Profile iOS] User initiated sign out');
       await signOut();
-      console.log('[Profile] Sign out successful');
+      console.log('[Profile iOS] Sign out successful, navigating to auth');
       router.replace('/auth');
     } catch (error) {
-      console.error('[Profile] Sign out failed:', error);
+      console.error('[Profile iOS] Sign out failed:', error);
       alert('Failed to sign out. Please try again.');
     } finally {
       setShowSignOutModal(false);
     }
+  };
+
+  const handlePremiumPress = () => {
+    console.log('[Profile iOS] User tapped Upgrade to Premium');
+    router.push('/subscription');
   };
 
   if (loading) {
@@ -324,7 +331,7 @@ export default function ProfileScreen() {
             {!isPremium && (
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={showPaywall}
+                onPress={handlePremiumPress}
                 accessibilityLabel="Upgrade to Premium"
                 accessibilityHint="Double tap to view premium subscription options"
               >

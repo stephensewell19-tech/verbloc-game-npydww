@@ -12,11 +12,11 @@ import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { useSubscription } from '@/contexts/SuperwallContext';
+import { useMonetization } from '@/contexts/MonetizationContext';
 
 export default function SubscriptionScreen() {
   const router = useRouter();
-  const { isPremium } = useSubscription();
+  const { isPremium, showPaywall } = useMonetization();
 
   const statusText = isPremium ? 'Active' : 'Free';
   const statusColor = isPremium ? colors.success : colors.textSecondary;
@@ -32,7 +32,6 @@ export default function SubscriptionScreen() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Hero Section */}
           <LinearGradient
             colors={[colors.primary, colors.secondary]}
             start={{ x: 0, y: 0 }}
@@ -51,7 +50,6 @@ export default function SubscriptionScreen() {
             </Text>
           </LinearGradient>
 
-          {/* Current Status */}
           <View style={styles.statusCard}>
             <View style={styles.statusHeader}>
               <Text style={styles.statusLabel}>Current Status</Text>
@@ -61,7 +59,6 @@ export default function SubscriptionScreen() {
             </View>
           </View>
 
-          {/* Features Section */}
           <View style={styles.featuresSection}>
             <Text style={styles.sectionTitle}>Planned Premium Features</Text>
 
@@ -151,7 +148,6 @@ export default function SubscriptionScreen() {
             </View>
           </View>
 
-          {/* Coming Soon Message */}
           <View style={styles.comingSoonCard}>
             <IconSymbol
               ios_icon_name="clock.fill"
@@ -163,9 +159,17 @@ export default function SubscriptionScreen() {
             <Text style={styles.comingSoonDescription}>
               Premium subscriptions will be available in a future update. Stay tuned!
             </Text>
+            
+            <TouchableOpacity
+              style={styles.notifyButton}
+              onPress={() => showPaywall('subscription_screen')}
+              accessibilityLabel="Get notified about premium"
+              accessibilityHint="Double tap to opt in for premium launch notifications"
+            >
+              <Text style={styles.notifyButtonText}>Notify Me When Available</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
               • No pay-to-win mechanics
@@ -297,6 +301,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  notifyButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  notifyButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
   footer: {
     paddingHorizontal: 20,
