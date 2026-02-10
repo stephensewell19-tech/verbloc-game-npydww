@@ -144,22 +144,54 @@ export default function HomeScreen() {
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button - navigating to board selection');
-    router.push('/board-select?mode=Solo');
+    try {
+      router.push('/board-select?mode=Solo');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to board selection. Please try again.',
+      });
+    }
   };
 
   const handleMultiplayer = () => {
     console.log('[Home] User tapped Multiplayer button');
-    router.push('/multiplayer-matchmaking');
+    try {
+      router.push('/multiplayer-matchmaking');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to multiplayer. Please try again.',
+      });
+    }
   };
 
   const handleDailyChallenge = () => {
     console.log('[Home] User tapped Daily Challenge card');
-    router.push('/daily-challenge');
+    try {
+      router.push('/daily-challenge');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to daily challenge. Please try again.',
+      });
+    }
   };
 
   const handleSpecialEvents = () => {
     console.log('[Home] User tapped Special Events card');
-    router.push('/special-events');
+    try {
+      router.push('/special-events');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to special events. Please try again.',
+      });
+    }
   };
 
   const userName = user?.name || user?.email?.split('@')[0] || 'Player';

@@ -122,60 +122,114 @@ export default function BoardSelectScreen() {
   const handleBoardSelect = (board: BoardListItem) => {
     console.log('[BoardSelect] Board selected:', board.name, 'mode:', mode);
     
-    // Remember the mode the player chose
-    setLastPlayedMode(mode.toLowerCase() as 'solo' | 'multiplayer');
-    
-    // Set turn limit based on difficulty for solo mode
-    let turnLimit = 20; // Default
-    if (mode === 'Solo') {
-      switch (board.difficulty) {
-        case 'Easy':
-          turnLimit = 25;
-          break;
-        case 'Medium':
-          turnLimit = 20;
-          break;
-        case 'Hard':
-          turnLimit = 15;
-          break;
-        case 'Special':
-          turnLimit = 30;
-          break;
-      }
+    // Safety check: Validate board data
+    if (!board || !board.id || !board.name) {
+      console.error('[BoardSelect] Invalid board data:', board);
+      setErrorModal({
+        visible: true,
+        message: 'Invalid board selected. Please try another board.',
+      });
+      return;
     }
     
-    // Set target score based on puzzle mode and difficulty
-    let targetScore = 500;
-    if (board.puzzleMode === 'score_target') {
-      switch (board.difficulty) {
-        case 'Easy':
-          targetScore = 300;
-          break;
-        case 'Medium':
-          targetScore = 500;
-          break;
-        case 'Hard':
-          targetScore = 800;
-          break;
-        case 'Special':
-          targetScore = 1000;
-          break;
-      }
+    // Safety check: Validate mode
+    if (!mode || (mode !== 'Solo' && mode !== 'Multiplayer')) {
+      console.error('[BoardSelect] Invalid mode:', mode);
+      setErrorModal({
+        visible: true,
+        message: 'Invalid game mode. Please restart the app.',
+      });
+      return;
     }
     
-    router.push({
-      pathname: '/game',
-      params: {
+    try {
+      // Remember the mode the player chose
+      setLastPlayedMode(mode.toLowerCase() as 'solo' | 'multiplayer');
+      
+      // Set turn limit based on difficulty for solo mode
+      let turnLimit = 20; // Default
+      if (mode === 'Solo') {
+        switch (board.difficulty) {
+          case 'Easy':
+            turnLimit = 25;
+            break;
+          case 'Medium':
+            turnLimit = 20;
+            break;
+          case 'Hard':
+            turnLimit = 15;
+            break;
+          case 'Special':
+            turnLimit = 30;
+            break;
+          default:
+            turnLimit = 20;
+        }
+      }
+      
+      // Set target score based on puzzle mode and difficulty
+      let targetScore = 500;
+      if (board.puzzleMode === 'score_target') {
+        switch (board.difficulty) {
+          case 'Easy':
+            targetScore = 300;
+            break;
+          case 'Medium':
+            targetScore = 500;
+            break;
+          case 'Hard':
+            targetScore = 800;
+            break;
+          case 'Special':
+            targetScore = 1000;
+            break;
+          default:
+            targetScore = 500;
+        }
+      }
+      
+      // Safety check: Validate gridSize
+      const gridSize = board.gridSize || 7;
+      if (gridSize < 3 || gridSize > 15) {
+        console.error('[BoardSelect] Invalid gridSize:', gridSize);
+        setErrorModal({
+          visible: true,
+          message: 'Invalid board size. Please try another board.',
+        });
+        return;
+      }
+      
+      console.log('[BoardSelect] Navigating to game with params:', {
         mode: mode.toLowerCase(),
         boardId: board.id,
         boardName: board.name,
         difficulty: board.difficulty,
         puzzleMode: board.puzzleMode,
-        gridSize: board.gridSize.toString(),
+        gridSize: gridSize.toString(),
         targetScore: targetScore.toString(),
         turnLimit: turnLimit.toString(),
-      },
-    });
+      });
+      
+      router.push({
+        pathname: '/game',
+        params: {
+          mode: mode.toLowerCase(),
+          boardId: board.id,
+          boardName: board.name,
+          difficulty: board.difficulty,
+          puzzleMode: board.puzzleMode,
+          gridSize: gridSize.toString(),
+          targetScore: targetScore.toString(),
+          turnLimit: turnLimit.toString(),
+        },
+      });
+    } catch (navError: any) {
+      console.error('[BoardSelect] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to start game. Please try again.',
+      });
+    }
   };
 
   const handleRandomBoard = () => {

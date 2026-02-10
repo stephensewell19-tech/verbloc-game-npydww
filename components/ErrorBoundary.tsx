@@ -1,13 +1,12 @@
 
-import React, { Component, ReactNode } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from './IconSymbol';
+import { router } from 'expo-router';
+import * as Updates from 'expo-updates';
 
 interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  children: React.ReactNode;
 }
 
 interface State {
@@ -15,81 +14,65 @@ interface State {
   error: Error | null;
 }
 
-/**
- * Error Boundary component to catch React errors and display fallback UI
- * Prevents app crashes and provides recovery options
- * 
- * EXPORTS: Both named and default export for maximum compatibility
- * - import { ErrorBoundary } from '@/components/ErrorBoundary'
- * - import ErrorBoundary from '@/components/ErrorBoundary'
- */
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return {
-      hasError: true,
-      error,
-    };
+    console.error('[ErrorBoundary] Caught error:', error);
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
-    
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
+    console.error('[ErrorBoundary] Error details:', error, errorInfo);
   }
 
-  handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-    });
+  handleReload = async () => {
+    console.log('[ErrorBoundary] Reloading app...');
+    try {
+      await Updates.reloadAsync();
+    } catch (err) {
+      console.error('[ErrorBoundary] Reload failed:', err);
+      // Fallback: Reset error state to try again
+      this.setState({ hasError: false, error: null });
+    }
+  };
+
+  handleGoHome = () => {
+    console.log('[ErrorBoundary] Navigating to home...');
+    try {
+      this.setState({ hasError: false, error: null });
+      router.replace('/(tabs)/(home)');
+    } catch (err) {
+      console.error('[ErrorBoundary] Navigation failed:', err);
+    }
   };
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
+      const errorMessage = this.state.error?.message || 'An unexpected error occurred';
+      
       return (
         <View style={styles.container}>
-          <IconSymbol
-            ios_icon_name="exclamationmark.triangle.fill"
-            android_material_icon_name="error"
-            size={64}
-            color={colors.error}
-          />
-          
+          <Text style={styles.emoji}>😔</Text>
           <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.message}>{errorMessage}</Text>
           
-          <Text style={styles.message}>
-            We encountered an unexpected error. Don&apos;t worry, your progress is saved.
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.button} onPress={this.handleReload}>
+              <Text style={styles.buttonText}>Reload App</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={this.handleGoHome}>
+              <Text style={[styles.buttonText, styles.secondaryButtonText]}>Go Home</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.hint}>
+            If this problem persists, please restart the app completely.
           </Text>
-          
-          {__DEV__ && this.state.error && (
-            <View style={styles.errorDetails}>
-              <Text style={styles.errorText}>{this.state.error.message}</Text>
-            </View>
-          )}
-          
-          <TouchableOpacity style={styles.button} onPress={this.handleReset}>
-            <IconSymbol
-              ios_icon_name="arrow.clockwise"
-              android_material_icon_name="refresh"
-              size={20}
-              color="#FFFFFF"
-            />
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
         </View>
       );
     }
@@ -97,9 +80,6 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-
-// Default export for convenience - ensures both import styles work
-export default ErrorBoundary;
 
 const styles = StyleSheet.create({
   container: {
@@ -109,45 +89,52 @@ const styles = StyleSheet.create({
     padding: 32,
     backgroundColor: colors.background,
   },
+  emoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: 24,
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
     fontSize: 16,
     color: colors.textSecondary,
-    textAlign: 'center',
     marginBottom: 32,
+    textAlign: 'center',
     lineHeight: 24,
   },
-  errorDetails: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
-    maxWidth: '100%',
-  },
-  errorText: {
-    fontSize: 12,
-    color: colors.error,
-    fontFamily: 'monospace',
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
     backgroundColor: colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     borderRadius: 12,
+    alignItems: 'center',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  secondaryButtonText: {
+    color: colors.primary,
+  },
+  hint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 24,
+    textAlign: 'center',
   },
 });

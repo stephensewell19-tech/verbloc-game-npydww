@@ -90,13 +90,30 @@ export default function DailyChallengeScreen() {
   };
 
   const handleStartChallenge = async () => {
-    if (!challenge) {
+    console.log('[DailyChallenge] User tapped Start Challenge button');
+    
+    // Safety check: Ensure challenge exists
+    if (!challenge || !challenge.id) {
+      console.error('[DailyChallenge] Challenge not loaded');
+      setErrorModal({
+        visible: true,
+        message: 'Challenge not loaded. Please refresh the page.',
+      });
       return;
     }
 
-    console.log('[DailyChallenge] User tapped Start Challenge button');
+    // Safety check: Validate challenge data
+    if (!challenge.boardId || !challenge.puzzleMode || !challenge.winCondition) {
+      console.error('[DailyChallenge] Invalid challenge data:', challenge);
+      setErrorModal({
+        visible: true,
+        message: 'Invalid challenge data. Please try again later.',
+      });
+      return;
+    }
 
     if (challenge.isCompleted) {
+      console.log('[DailyChallenge] Challenge already completed');
       setErrorModal({
         visible: true,
         message: 'You have already completed today\'s challenge!',
@@ -105,10 +122,17 @@ export default function DailyChallengeScreen() {
     }
 
     if (challenge.attemptsUsed >= challenge.attemptsAllowed) {
+      console.log('[DailyChallenge] No attempts remaining');
       setErrorModal({
         visible: true,
         message: 'You have used all your attempts for today.',
       });
+      return;
+    }
+    
+    // Prevent double-tap
+    if (startingGame) {
+      console.log('[DailyChallenge] Already starting game, ignoring duplicate request');
       return;
     }
 
@@ -118,18 +142,38 @@ export default function DailyChallengeScreen() {
         `/api/daily-challenge/${challenge.id}/start`,
         { gameMode: selectedMode }
       );
+      
+      // Safety check: Validate response
+      if (!response || !response.gameId) {
+        console.error('[DailyChallenge] Invalid response from server:', response);
+        throw new Error('Invalid response from server');
+      }
+      
       console.log('[DailyChallenge] Game started:', response);
 
       if (selectedMode === 'dailyChallengeSolo') {
         // Pass all necessary parameters for daily challenge tracking
         const startTime = Date.now();
+        const targetScore = challenge.winCondition.target || 500;
+        const turnLimit = challenge.turnLimit || 20;
+        
+        console.log('[DailyChallenge] Navigating to solo game with params:', {
+          gameId: response.gameId,
+          challengeId: challenge.id,
+          boardId: challenge.boardId,
+          puzzleMode: challenge.puzzleMode,
+          targetScore,
+          turnLimit,
+        });
+        
         router.push(
           `/game?gameId=${response.gameId}&dailyChallenge=true&challengeId=${challenge.id}&` +
           `boardId=${challenge.boardId}&mode=solo&puzzleMode=${challenge.puzzleMode}&` +
-          `targetScore=${challenge.winCondition.target}&turnLimit=${challenge.turnLimit || 20}&` +
+          `targetScore=${targetScore}&turnLimit=${turnLimit}&` +
           `startTime=${startTime}`
         );
       } else {
+        console.log('[DailyChallenge] Navigating to multiplayer game');
         router.push(
           `/multiplayer-game?gameId=${response.gameId}&dailyChallenge=true&challengeId=${challenge.id}`
         );
@@ -138,7 +182,7 @@ export default function DailyChallengeScreen() {
       console.error('[DailyChallenge] Failed to start challenge:', error);
       setErrorModal({
         visible: true,
-        message: error.message || 'Failed to start challenge',
+        message: error.message || 'Failed to start challenge. Please try again.',
       });
     } finally {
       setStartingGame(false);

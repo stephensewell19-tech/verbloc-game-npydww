@@ -26,7 +26,7 @@ import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import GameBoard from '@/components/GameBoard';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +35,7 @@ import { setLastPlayedMode } from '@/utils/onboarding';
 export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const mountedRef = useRef(true);
   
   const [board, setBoard] = useState<BoardState | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
@@ -80,72 +81,175 @@ export default function GameScreen() {
     turnLimit: gameMode === 'solo' ? turnLimit : undefined,
   };
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const loadExistingGame = useCallback(async (id: string) => {
-    console.log('Loading existing game:', id);
+    console.log('[Game] Loading existing game:', id);
+    
+    // Safety check: Ensure gameId is valid
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      console.error('[Game] Invalid gameId provided:', id);
+      if (mountedRef.current) {
+        setError('Invalid game ID. Starting new game instead.');
+        startNewGame();
+      }
+      return;
+    }
+    
     try {
-      setLoading(true);
+      if (mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+      
       const response = await authenticatedGet(`/api/game/${id}`);
+      
+      // Safety check: Ensure response has required data
+      if (!response || !response.boardState) {
+        console.error('[Game] Invalid game data received:', response);
+        throw new Error('Invalid game data received from server');
+      }
+      
       const gameData = response;
       
-      setBoard(gameData.boardState);
-      setScore(gameData.currentScore || 0);
-      setMovesMade(gameData.moveHistory?.length || 0);
-      setWordsFormed(gameData.moveHistory?.length || 0);
-      setGameStatus(gameData.status === 'completed' ? 'won' : 'playing');
+      // Safety check: Validate board state
+      if (!gameData.boardState.tiles || !Array.isArray(gameData.boardState.tiles)) {
+        console.error('[Game] Invalid board state:', gameData.boardState);
+        throw new Error('Invalid board state');
+      }
       
-      console.log('Game loaded successfully');
-    } catch (err) {
-      console.error('Error loading game:', err);
-      setError('Failed to load game. Starting new game instead.');
-      startNewGame();
+      if (mountedRef.current) {
+        setBoard(gameData.boardState);
+        setScore(gameData.currentScore || 0);
+        setMovesMade(gameData.moveHistory?.length || 0);
+        setWordsFormed(gameData.moveHistory?.length || 0);
+        setGameStatus(gameData.status === 'completed' ? 'won' : 'playing');
+      }
+      
+      console.log('[Game] Game loaded successfully');
+    } catch (err: any) {
+      console.error('[Game] Error loading game:', err);
+      if (mountedRef.current) {
+        setError(err.message || 'Failed to load game. Starting new game instead.');
+        // Safe fallback: Start new game instead of crashing
+        setTimeout(() => {
+          if (mountedRef.current) {
+            startNewGame();
+          }
+        }, 1000);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   const startNewGame = useCallback(async () => {
-    console.log('Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
+    console.log('[Game] Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
+    
+    // Safety check: Validate parameters
+    if (!gridSize || gridSize < 3 || gridSize > 15) {
+      console.error('[Game] Invalid gridSize:', gridSize, '- using default 7');
+    }
+    
+    if (!turnLimit || turnLimit < 1) {
+      console.error('[Game] Invalid turnLimit:', turnLimit, '- using default 20');
+    }
+    
     try {
-      setLoading(true);
+      if (mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
       
-      const initialBoard = generateInitialBoard(gridSize);
-      setBoard(initialBoard);
-      setScore(0);
-      setMovesMade(0);
-      setWordsFormed(0);
-      setTurnsLeft(turnLimit);
-      setGameStatus('playing');
-      setLastWordEffect(null);
-      setCurrentEffects([]);
-      setEfficiency(0);
-      setError(null);
-      setShowCompletionModal(false);
-      setComboCount(0);
-      setLastWordScore(null);
+      // Generate initial board with safety checks
+      const initialBoard = generateInitialBoard(gridSize || 7);
+      
+      // Safety check: Ensure board was generated successfully
+      if (!initialBoard || !initialBoard.tiles || !Array.isArray(initialBoard.tiles)) {
+        console.error('[Game] Failed to generate initial board');
+        throw new Error('Failed to generate game board');
+      }
+      
+      // Verify board has tiles
+      const totalTiles = initialBoard.tiles.flat().length;
+      if (totalTiles === 0) {
+        console.error('[Game] Generated board has no tiles');
+        throw new Error('Generated board is empty');
+      }
+      
+      console.log('[Game] Board generated successfully with', totalTiles, 'tiles');
+      
+      if (mountedRef.current) {
+        setBoard(initialBoard);
+        setScore(0);
+        setMovesMade(0);
+        setWordsFormed(0);
+        setTurnsLeft(turnLimit || 20);
+        setGameStatus('playing');
+        setLastWordEffect(null);
+        setCurrentEffects([]);
+        setEfficiency(0);
+        setError(null);
+        setShowCompletionModal(false);
+        setComboCount(0);
+        setLastWordScore(null);
+      }
       
       if (gameMode === 'solo') {
         try {
           const response = await authenticatedPost('/api/game/solo/start', {});
-          console.log('Solo game session created on backend:', response.gameId);
-        } catch (err) {
-          console.error('Failed to create backend game session:', err);
+          console.log('[Game] Solo game session created on backend:', response.gameId);
+        } catch (err: any) {
+          console.error('[Game] Failed to create backend game session:', err);
+          // Don't throw - game can still be played locally
         }
       }
       
-      console.log('New game started successfully - Solo mode with', turnLimit, 'turns');
-    } catch (err) {
-      console.error('Error starting game:', err);
-      setError('Failed to start game');
+      console.log('[Game] New game started successfully - Solo mode with', turnLimit, 'turns');
+    } catch (err: any) {
+      console.error('[Game] Error starting game:', err);
+      if (mountedRef.current) {
+        setError(err.message || 'Failed to start game. Please try again.');
+      }
+      // Don't leave user in broken state - show error and allow retry
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [gridSize, puzzleMode, turnLimit, gameMode]);
 
   useEffect(() => {
-    console.log('GameScreen mounted with params:', params);
+    console.log('[Game] GameScreen mounted with params:', params);
+    
+    // Navigation guard: Validate required parameters
+    if (!gameMode || (gameMode !== 'solo' && gameMode !== 'multiplayer')) {
+      console.error('[Game] Invalid gameMode:', gameMode, '- defaulting to solo');
+      // Don't crash - use safe default
+    }
+    
+    if (!gridSize || gridSize < 3 || gridSize > 15) {
+      console.error('[Game] Invalid gridSize:', gridSize, '- will use default');
+    }
+    
+    if (!turnLimit || turnLimit < 1) {
+      console.error('[Game] Invalid turnLimit:', turnLimit, '- will use default');
+    }
     
     // Remember the mode the player chose
-    setLastPlayedMode(gameMode);
+    try {
+      setLastPlayedMode(gameMode);
+    } catch (modeError) {
+      console.error('[Game] Failed to save last played mode:', modeError);
+      // Don't crash - this is optional
+    }
     
     if (gameId) {
       loadExistingGame(gameId);
@@ -155,21 +259,51 @@ export default function GameScreen() {
   }, [gameId, gameMode, loadExistingGame, startNewGame, params]);
 
   function handleTilePress(row: number, col: number) {
-    if (!board || gameStatus !== 'playing') {
+    console.log('[Game] Tile pressed:', row, col);
+    
+    // Safety check: Ensure board exists
+    if (!board || !board.tiles) {
+      console.error('[Game] Cannot press tile - board not initialized');
+      setError('Game board not ready. Please restart the game.');
       return;
     }
     
-    console.log('Tile pressed:', row, col);
+    // Safety check: Ensure game is in playing state
+    if (gameStatus !== 'playing') {
+      console.log('[Game] Cannot press tile - game not in playing state:', gameStatus);
+      return;
+    }
+    
+    // Safety check: Validate row and col bounds
+    if (row < 0 || row >= board.tiles.length || col < 0 || col >= board.tiles[0].length) {
+      console.error('[Game] Invalid tile position:', row, col);
+      return;
+    }
     
     // Haptic feedback on tile selection
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (hapticErr) {
+      console.error('[Game] Haptic feedback failed:', hapticErr);
+      // Don't crash - haptics are optional
+    }
     
     const position = { row, col };
     const tile = board.tiles[row][col];
     
+    // Safety check: Ensure tile exists
+    if (!tile) {
+      console.error('[Game] Tile not found at position:', row, col);
+      return;
+    }
+    
     if (tile.isLocked) {
-      console.log('Cannot select locked tile');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.log('[Game] Cannot select locked tile');
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch (hapticErr) {
+        console.error('[Game] Haptic feedback failed:', hapticErr);
+      }
       return;
     }
     
@@ -218,14 +352,41 @@ export default function GameScreen() {
   }
 
   async function handleSubmitWord() {
-    if (!board || selectedPositions.length < 3 || !currentWord) {
-      console.log('Cannot submit: insufficient tiles selected');
-      setError('Select at least 3 tiles to form a word');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    console.log('[Game] Submit word requested:', currentWord);
+    
+    // Safety check: Ensure board exists
+    if (!board || !board.tiles) {
+      console.error('[Game] Cannot submit word - board not initialized');
+      setError('Game board not ready. Please restart the game.');
       return;
     }
     
-    console.log('Submitting word:', currentWord, 'Turns left:', turnsLeft);
+    // Safety check: Ensure sufficient tiles selected
+    if (!selectedPositions || selectedPositions.length < 3) {
+      console.log('[Game] Cannot submit: insufficient tiles selected');
+      setError('Select at least 3 tiles to form a word');
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } catch (hapticErr) {
+        console.error('[Game] Haptic feedback failed:', hapticErr);
+      }
+      return;
+    }
+    
+    // Safety check: Ensure word exists
+    if (!currentWord || typeof currentWord !== 'string' || currentWord.trim() === '') {
+      console.error('[Game] Cannot submit: invalid word');
+      setError('Invalid word');
+      return;
+    }
+    
+    // Prevent double submission
+    if (submitting) {
+      console.log('[Game] Already submitting word, ignoring duplicate request');
+      return;
+    }
+    
+    console.log('[Game] Submitting word:', currentWord, 'Turns left:', turnsLeft);
     setSubmitting(true);
     setError(null);
     
@@ -484,7 +645,8 @@ export default function GameScreen() {
       return 'Select tiles to form a word (min 3 letters)';
     } else if (wordLength < 3) {
       const remaining = 3 - wordLength;
-      return `Need ${remaining} more letter${remaining > 1 ? 's' : ''}`;
+      const letterText = remaining > 1 ? 'letters' : 'letter';
+      return `Need ${remaining} more ${letterText}`;
     } else if (wordLength <= 4) {
       return 'Standard word - minor board effects';
     } else if (wordLength <= 6) {

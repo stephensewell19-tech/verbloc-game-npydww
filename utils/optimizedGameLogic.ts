@@ -1,5 +1,5 @@
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { Position, BoardState, Tile } from '@/types/game';
 
 /**
@@ -39,8 +39,8 @@ export function useOptimizedTilePress(
   onTilePress: (row: number, col: number) => void,
   debounceMs: number = 50
 ): (row: number, col: number) => void {
-  // Use a ref-like pattern to store lastPressTime outside the callback
-  const lastPressTimeRef = { current: 0 };
+  // Use a ref to store lastPressTime outside the callback
+  const lastPressTimeRef = useRef(0);
   
   return useCallback((row: number, col: number) => {
     const now = Date.now();

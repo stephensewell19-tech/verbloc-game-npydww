@@ -63,8 +63,18 @@ export default function MultiplayerMatchmakingScreen() {
   };
 
   const handleRandomMatchmaking = async () => {
-    if (!selectedBoardId) {
+    console.log('[Matchmaking] Random matchmaking requested');
+    
+    // Safety check: Validate board selection
+    if (!selectedBoardId || typeof selectedBoardId !== 'string') {
+      console.error('[Matchmaking] Invalid board selection:', selectedBoardId);
       setError('Please select a board');
+      return;
+    }
+    
+    // Prevent double-tap
+    if (loading) {
+      console.log('[Matchmaking] Already loading, ignoring duplicate request');
       return;
     }
 
@@ -72,18 +82,29 @@ export default function MultiplayerMatchmakingScreen() {
     setError('');
 
     try {
-      console.log('[Matchmaking] Starting random matchmaking');
+      console.log('[Matchmaking] Starting random matchmaking with params:', {
+        boardId: selectedBoardId,
+        isLiveMatch,
+        maxPlayers,
+      });
+      
       const response = await authenticatedPost('/api/game/multiplayer/matchmaking/random', {
         boardId: selectedBoardId,
         isLiveMatch,
         maxPlayers,
       });
+      
+      // Safety check: Validate response
+      if (!response || !response.gameId) {
+        console.error('[Matchmaking] Invalid response:', response);
+        throw new Error('Invalid response from server');
+      }
 
       console.log('[Matchmaking] Random match created:', response);
       router.push(`/multiplayer-game?gameId=${response.gameId}`);
     } catch (err: any) {
       console.error('[Matchmaking] Random matchmaking failed:', err);
-      setError(err.message || 'Failed to find match');
+      setError(err.message || 'Failed to find match. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -134,8 +155,18 @@ export default function MultiplayerMatchmakingScreen() {
   };
 
   const handleJoinByCode = async () => {
-    if (!inviteCode.trim()) {
+    console.log('[Matchmaking] Join by code requested');
+    
+    // Safety check: Validate invite code
+    if (!inviteCode || typeof inviteCode !== 'string' || inviteCode.trim() === '') {
+      console.error('[Matchmaking] Invalid invite code:', inviteCode);
       setError('Please enter an invite code');
+      return;
+    }
+    
+    // Prevent double-tap
+    if (loading) {
+      console.log('[Matchmaking] Already loading, ignoring duplicate request');
       return;
     }
 
@@ -143,16 +174,24 @@ export default function MultiplayerMatchmakingScreen() {
     setError('');
 
     try {
-      console.log('[Matchmaking] Joining by code:', inviteCode);
+      const normalizedCode = inviteCode.trim().toUpperCase();
+      console.log('[Matchmaking] Joining by code:', normalizedCode);
+      
       const response = await authenticatedPost('/api/game/multiplayer/matchmaking/join-by-code', {
-        inviteCode: inviteCode.trim().toUpperCase(),
+        inviteCode: normalizedCode,
       });
+      
+      // Safety check: Validate response
+      if (!response || !response.gameId) {
+        console.error('[Matchmaking] Invalid response:', response);
+        throw new Error('Invalid response from server');
+      }
 
       console.log('[Matchmaking] Joined game:', response);
       router.push(`/multiplayer-game?gameId=${response.gameId}`);
     } catch (err: any) {
       console.error('[Matchmaking] Failed to join by code:', err);
-      setError(err.message || 'Failed to join game');
+      setError(err.message || 'Failed to join game. Please check the code and try again.');
     } finally {
       setLoading(false);
     }

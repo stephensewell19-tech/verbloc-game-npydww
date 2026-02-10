@@ -14,11 +14,16 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { generateInitialBoard, isValidWord } from '@/utils/gameLogic';
 import { validateWord } from '@/utils/wordMechanics';
 
+interface TestWord {
+  word: string;
+  valid: boolean;
+}
+
 export default function DiagnosticsScreen() {
   const router = useRouter();
   const [boardGenTest, setBoardGenTest] = useState<string>('Not tested');
   const [dictionaryTest, setDictionaryTest] = useState<string>('Not tested');
-  const [testWords, setTestWords] = useState<Array<{ word: string; valid: boolean }>>([]);
+  const [testWords, setTestWords] = useState<TestWord[]>([]);
   const [boardSize, setBoardSize] = useState<number>(0);
   const [tileCount, setTileCount] = useState<number>(0);
 

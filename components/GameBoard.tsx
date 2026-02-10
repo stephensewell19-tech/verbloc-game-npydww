@@ -42,55 +42,41 @@ function resolveImageSource(source: string | number | any): any {
   return source;
 }
 
-export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
-  const screenWidth = Dimensions.get('window').width;
-  const boardSize = tiles.length;
-  const availableWidth = screenWidth - (BOARD_PADDING * 2);
-  const tileSize = (availableWidth - (TILE_GAP * (boardSize - 1))) / boardSize;
-
-  function isTileSelected(row: number, col: number): boolean {
-    return selectedPositions.some(pos => pos.row === row && pos.col === col);
-  }
-
-  function getSelectionOrder(row: number, col: number): number {
-    const index = selectedPositions.findIndex(pos => pos.row === row && pos.col === col);
-    return index !== -1 ? index + 1 : 0;
-  }
-
-  return (
-    <View style={styles.container}>
-      {tiles.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((tile, colIndex) => (
-            <TileComponent
-              key={`${rowIndex}-${colIndex}`}
-              tile={tile}
-              size={tileSize}
-              selected={isTileSelected(rowIndex, colIndex)}
-              order={getSelectionOrder(rowIndex, colIndex)}
-              onPress={() => onTilePress(rowIndex, colIndex)}
-              disabled={disabled}
-            />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
+  // Safety check: Ensure tile exists
+  if (!tile) {
+    console.error('[TileComponent] Tile is null or undefined');
+    return (
+      <View style={[styles.tile, { width: size, height: size, backgroundColor: '#333' }]}>
+        <Text style={styles.errorText}>?</Text>
+      </View>
+    );
+  }
+  
+  // Safety check: Ensure size is valid
+  if (!size || size <= 0 || !isFinite(size)) {
+    console.error('[TileComponent] Invalid size:', size);
+    return null;
+  }
+  
+  // Initialize hooks unconditionally at the top
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const glow = useSharedValue(0);
 
   useEffect(() => {
-    if (selected) {
-      glow.value = withSequence(
-        withTiming(1, { duration: 300 }),
-        withTiming(0.7, { duration: 500 })
-      );
-    } else {
-      glow.value = withTiming(0, { duration: 200 });
+    try {
+      if (selected) {
+        glow.value = withSequence(
+          withTiming(1, { duration: 300 }),
+          withTiming(0.7, { duration: 500 })
+        );
+      } else {
+        glow.value = withTiming(0, { duration: 200 });
+      }
+    } catch (animError) {
+      console.error('[TileComponent] Animation error:', animError);
+      // Don't crash - animations are optional
     }
   }, [selected, glow]);
 
@@ -119,24 +105,40 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   });
 
   function handlePress() {
-    if (disabled || tile.isLocked) {
-      // Shake animation for locked tiles
-      rotation.value = withSequence(
-        withSpring(-5, { damping: 10 }),
-        withSpring(5, { damping: 10 }),
-        withSpring(0, { damping: 10 })
+    console.log('[TileComponent] Tile pressed, disabled:', disabled, 'locked:', tile.isLocked);
+    
+    try {
+      if (disabled || tile.isLocked) {
+        // Shake animation for locked tiles
+        rotation.value = withSequence(
+          withSpring(-5, { damping: 10 }),
+          withSpring(5, { damping: 10 }),
+          withSpring(0, { damping: 10 })
+        );
+        return;
+      }
+
+      // Pop animation on press
+      scale.value = withSequence(
+        withSpring(0.85, { damping: 10 }),
+        withSpring(1.05, { damping: 8 }),
+        withSpring(1, { damping: 10 })
       );
-      return;
+    } catch (animError) {
+      console.error('[TileComponent] Animation error:', animError);
+      // Don't crash - animations are optional
     }
 
-    // Pop animation on press
-    scale.value = withSequence(
-      withSpring(0.85, { damping: 10 }),
-      withSpring(1.05, { damping: 8 }),
-      withSpring(1, { damping: 10 })
-    );
-
-    onPress();
+    // Safety check: Ensure onPress exists
+    if (typeof onPress === 'function') {
+      try {
+        onPress();
+      } catch (pressError) {
+        console.error('[TileComponent] onPress error:', pressError);
+      }
+    } else {
+      console.error('[TileComponent] onPress is not a function:', onPress);
+    }
   }
 
   function getTileColor(): string {
@@ -256,6 +258,105 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
   );
 }
 
+export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
+  console.log('[GameBoard] Rendering board with', tiles?.length || 0, 'rows');
+  
+  // Safety check: Ensure tiles exist and are valid
+  if (!tiles || !Array.isArray(tiles) || tiles.length === 0) {
+    console.error('[GameBoard] Invalid tiles data:', tiles);
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Board not available</Text>
+          <Text style={styles.errorSubtext}>Please restart the game</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  // Safety check: Ensure all rows are valid arrays
+  const invalidRows = tiles.filter(row => !row || !Array.isArray(row) || row.length === 0);
+  if (invalidRows.length > 0) {
+    console.error('[GameBoard] Invalid rows detected:', invalidRows.length);
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Board corrupted</Text>
+          <Text style={styles.errorSubtext}>Please restart the game</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  const screenWidth = Dimensions.get('window').width;
+  const boardSize = tiles.length;
+  const availableWidth = screenWidth - (BOARD_PADDING * 2);
+  const tileSize = (availableWidth - (TILE_GAP * (boardSize - 1))) / boardSize;
+  
+  // Safety check: Ensure tileSize is valid
+  if (!tileSize || tileSize <= 0 || !isFinite(tileSize)) {
+    console.error('[GameBoard] Invalid tile size calculated:', tileSize);
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Display error</Text>
+          <Text style={styles.errorSubtext}>Please restart the app</Text>
+        </View>
+      </View>
+    );
+  }
+
+  function isTileSelected(row: number, col: number): boolean {
+    if (!selectedPositions || !Array.isArray(selectedPositions)) {
+      return false;
+    }
+    return selectedPositions.some(pos => pos && pos.row === row && pos.col === col);
+  }
+
+  function getSelectionOrder(row: number, col: number): number {
+    if (!selectedPositions || !Array.isArray(selectedPositions)) {
+      return 0;
+    }
+    const index = selectedPositions.findIndex(pos => pos && pos.row === row && pos.col === col);
+    return index !== -1 ? index + 1 : 0;
+  }
+
+  return (
+    <View style={styles.container}>
+      {tiles.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.row}>
+          {row.map((tile, colIndex) => {
+            // Safety check: Ensure tile exists
+            if (!tile) {
+              console.error('[GameBoard] Missing tile at', rowIndex, colIndex);
+              return (
+                <View 
+                  key={`${rowIndex}-${colIndex}`} 
+                  style={[styles.tile, { width: tileSize, height: tileSize, backgroundColor: '#333' }]}
+                >
+                  <Text style={styles.errorText}>?</Text>
+                </View>
+              );
+            }
+            
+            return (
+              <TileComponent
+                key={`${rowIndex}-${colIndex}`}
+                tile={tile}
+                size={tileSize}
+                selected={isTileSelected(rowIndex, colIndex)}
+                order={getSelectionOrder(rowIndex, colIndex)}
+                onPress={() => onTilePress(rowIndex, colIndex)}
+                disabled={disabled}
+              />
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     alignSelf: 'center',
@@ -274,6 +375,25 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.3)',
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    minHeight: 200,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.error,
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   tileDisabled: {
     opacity: 0.6,

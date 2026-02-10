@@ -145,12 +145,50 @@ export default function MultiplayerGameScreen() {
   };
 
   const handleTilePress = (row: number, col: number) => {
-    if (!turnStatus?.isMyTurn) {
+    console.log('[MultiplayerGame] Tile pressed:', row, col);
+    
+    // Safety check: Ensure game exists
+    if (!game || !game.boardState || !game.boardState.tiles) {
+      console.error('[MultiplayerGame] Cannot press tile - game not initialized');
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: 'Game not ready. Please refresh.',
+      });
+      return;
+    }
+    
+    // Safety check: Validate turn status
+    if (!turnStatus) {
+      console.error('[MultiplayerGame] Cannot press tile - turn status not loaded');
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: 'Turn status not loaded. Please refresh.',
+      });
+      return;
+    }
+    
+    if (!turnStatus.isMyTurn) {
+      console.log('[MultiplayerGame] Not player\'s turn');
       setAlertModal({
         visible: true,
         title: 'Not Your Turn',
         message: 'Wait for your turn to make a move',
       });
+      return;
+    }
+    
+    // Safety check: Validate row and col bounds
+    if (row < 0 || row >= game.boardState.tiles.length || col < 0 || col >= game.boardState.tiles[0].length) {
+      console.error('[MultiplayerGame] Invalid tile position:', row, col);
+      return;
+    }
+    
+    // Safety check: Ensure tile exists
+    const tile = game.boardState.tiles[row][col];
+    if (!tile) {
+      console.error('[MultiplayerGame] Tile not found at position:', row, col);
       return;
     }
 
@@ -169,7 +207,11 @@ export default function MultiplayerGameScreen() {
   };
 
   const handleSubmitWord = async () => {
-    if (selectedPositions.length < 3) {
+    console.log('[MultiplayerGame] Submit word requested');
+    
+    // Safety check: Validate selected positions
+    if (!selectedPositions || selectedPositions.length < 3) {
+      console.log('[MultiplayerGame] Insufficient tiles selected');
       setAlertModal({
         visible: true,
         title: 'Invalid Word',
@@ -178,15 +220,58 @@ export default function MultiplayerGameScreen() {
       return;
     }
 
-    if (!game) return;
+    // Safety check: Ensure game exists
+    if (!game || !game.boardState || !game.boardState.tiles) {
+      console.error('[MultiplayerGame] Cannot submit - game not initialized');
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: 'Game not ready. Please refresh.',
+      });
+      return;
+    }
+    
+    // Safety check: Ensure gameId exists
+    if (!gameId || typeof gameId !== 'string') {
+      console.error('[MultiplayerGame] Invalid gameId:', gameId);
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: 'Invalid game ID. Please restart.',
+      });
+      return;
+    }
+    
+    // Prevent double submission
+    if (submitting) {
+      console.log('[MultiplayerGame] Already submitting, ignoring duplicate request');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
 
     try {
-      // Build word from selected positions
+      // Build word from selected positions with safety checks
       const word = selectedPositions
-        .map((pos) => game.boardState.tiles[pos.row][pos.col].letter)
+        .map((pos) => {
+          // Safety check: Validate position bounds
+          if (pos.row < 0 || pos.row >= game.boardState.tiles.length ||
+              pos.col < 0 || pos.col >= game.boardState.tiles[0].length) {
+            console.error('[MultiplayerGame] Invalid position:', pos);
+            throw new Error('Invalid tile position');
+          }
+          
+          const tile = game.boardState.tiles[pos.row][pos.col];
+          
+          // Safety check: Ensure tile exists
+          if (!tile || !tile.letter) {
+            console.error('[MultiplayerGame] Tile missing at position:', pos);
+            throw new Error('Invalid tile');
+          }
+          
+          return tile.letter;
+        })
         .join('');
 
       console.log('[MultiplayerGame] Submitting word:', word);
@@ -208,6 +293,11 @@ export default function MultiplayerGameScreen() {
     } catch (err: any) {
       console.error('[MultiplayerGame] Failed to submit move:', err);
       setError(err.message || 'Failed to submit move');
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: err.message || 'Failed to submit move. Please try again.',
+      });
     } finally {
       setSubmitting(false);
     }

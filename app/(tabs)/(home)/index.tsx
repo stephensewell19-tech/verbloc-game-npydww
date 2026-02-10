@@ -77,6 +77,13 @@ export default function HomeScreen() {
     console.log('[Home] Loading player stats...');
     try {
       const stats = await authenticatedGet<PlayerStats>('/api/player/stats');
+      
+      // Safety check: Validate stats data
+      if (!stats || typeof stats !== 'object') {
+        console.error('[Home] Invalid stats data received:', stats);
+        throw new Error('Invalid stats data');
+      }
+      
       console.log('[Home] Player stats loaded:', stats);
       setPlayerStats(stats);
     } catch (error: any) {
@@ -90,11 +97,41 @@ export default function HomeScreen() {
           await apiPost('/api/player/stats/initialize', {});
           // Retry fetching stats
           const retryStats = await authenticatedGet<PlayerStats>('/api/player/stats');
+          
+          // Safety check: Validate retry stats
+          if (!retryStats || typeof retryStats !== 'object') {
+            console.error('[Home] Invalid retry stats data:', retryStats);
+            throw new Error('Invalid stats data after initialization');
+          }
+          
           console.log('[Home] Player stats initialized and loaded:', retryStats);
           setPlayerStats(retryStats);
         } catch (initError: any) {
           console.error('[Home] Failed to initialize player stats:', initError);
+          // Set safe default stats to prevent UI crashes
+          setPlayerStats({
+            level: 1,
+            experiencePoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            totalGamesPlayed: 0,
+            totalGamesWon: 0,
+            totalScore: 0,
+            totalWordsFormed: 0,
+          } as PlayerStats);
         }
+      } else {
+        // Set safe default stats for other errors
+        setPlayerStats({
+          level: 1,
+          experiencePoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          totalGamesPlayed: 0,
+          totalGamesWon: 0,
+          totalScore: 0,
+          totalWordsFormed: 0,
+        } as PlayerStats);
       }
     } finally {
       setStatsLoading(false);
@@ -142,22 +179,54 @@ export default function HomeScreen() {
 
   const handlePlaySolo = () => {
     console.log('[Home] User tapped Play Solo button - navigating to board selection');
-    router.push('/board-select?mode=Solo');
+    try {
+      router.push('/board-select?mode=Solo');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to board selection. Please try again.',
+      });
+    }
   };
 
   const handleMultiplayer = () => {
     console.log('[Home] User tapped Multiplayer button');
-    router.push('/multiplayer-matchmaking');
+    try {
+      router.push('/multiplayer-matchmaking');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to multiplayer. Please try again.',
+      });
+    }
   };
 
   const handleDailyChallenge = () => {
     console.log('[Home] User tapped Daily Challenge card');
-    router.push('/daily-challenge');
+    try {
+      router.push('/daily-challenge');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to daily challenge. Please try again.',
+      });
+    }
   };
 
   const handleSpecialEvents = () => {
     console.log('[Home] User tapped Special Events card');
-    router.push('/special-events');
+    try {
+      router.push('/special-events');
+    } catch (navError: any) {
+      console.error('[Home] Navigation failed:', navError);
+      setErrorModal({
+        visible: true,
+        message: 'Failed to navigate to special events. Please try again.',
+      });
+    }
   };
 
   const userName = user?.name || user?.email?.split('@')[0] || 'Player';
