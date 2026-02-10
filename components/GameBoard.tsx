@@ -43,6 +43,11 @@ function resolveImageSource(source: string | number | any): any {
 }
 
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
+  // Initialize hooks unconditionally at the top
+  const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
+  const glow = useSharedValue(0);
+
   // Safety check: Ensure tile exists
   if (!tile) {
     console.error('[TileComponent] Tile is null or undefined');
@@ -58,11 +63,6 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     console.error('[TileComponent] Invalid size:', size);
     return null;
   }
-  
-  // Initialize hooks unconditionally at the top
-  const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
-  const glow = useSharedValue(0);
 
   useEffect(() => {
     try {

@@ -88,68 +88,6 @@ export default function GameScreen() {
     };
   }, []);
 
-  const loadExistingGame = useCallback(async (id: string) => {
-    console.log('[Game] Loading existing game:', id);
-    
-    // Safety check: Ensure gameId is valid
-    if (!id || typeof id !== 'string' || id.trim() === '') {
-      console.error('[Game] Invalid gameId provided:', id);
-      if (mountedRef.current) {
-        setError('Invalid game ID. Starting new game instead.');
-        startNewGame();
-      }
-      return;
-    }
-    
-    try {
-      if (mountedRef.current) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      const response = await authenticatedGet(`/api/game/${id}`);
-      
-      // Safety check: Ensure response has required data
-      if (!response || !response.boardState) {
-        console.error('[Game] Invalid game data received:', response);
-        throw new Error('Invalid game data received from server');
-      }
-      
-      const gameData = response;
-      
-      // Safety check: Validate board state
-      if (!gameData.boardState.tiles || !Array.isArray(gameData.boardState.tiles)) {
-        console.error('[Game] Invalid board state:', gameData.boardState);
-        throw new Error('Invalid board state');
-      }
-      
-      if (mountedRef.current) {
-        setBoard(gameData.boardState);
-        setScore(gameData.currentScore || 0);
-        setMovesMade(gameData.moveHistory?.length || 0);
-        setWordsFormed(gameData.moveHistory?.length || 0);
-        setGameStatus(gameData.status === 'completed' ? 'won' : 'playing');
-      }
-      
-      console.log('[Game] Game loaded successfully');
-    } catch (err: any) {
-      console.error('[Game] Error loading game:', err);
-      if (mountedRef.current) {
-        setError(err.message || 'Failed to load game. Starting new game instead.');
-        // Safe fallback: Start new game instead of crashing
-        setTimeout(() => {
-          if (mountedRef.current) {
-            startNewGame();
-          }
-        }, 1000);
-      }
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
   const startNewGame = useCallback(async () => {
     console.log('[Game] Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     
@@ -226,6 +164,68 @@ export default function GameScreen() {
     }
   }, [gridSize, puzzleMode, turnLimit, gameMode]);
 
+  const loadExistingGame = useCallback(async (id: string) => {
+    console.log('[Game] Loading existing game:', id);
+    
+    // Safety check: Ensure gameId is valid
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      console.error('[Game] Invalid gameId provided:', id);
+      if (mountedRef.current) {
+        setError('Invalid game ID. Starting new game instead.');
+        startNewGame();
+      }
+      return;
+    }
+    
+    try {
+      if (mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
+      
+      const response = await authenticatedGet(`/api/game/${id}`);
+      
+      // Safety check: Ensure response has required data
+      if (!response || !response.boardState) {
+        console.error('[Game] Invalid game data received:', response);
+        throw new Error('Invalid game data received from server');
+      }
+      
+      const gameData = response;
+      
+      // Safety check: Validate board state
+      if (!gameData.boardState.tiles || !Array.isArray(gameData.boardState.tiles)) {
+        console.error('[Game] Invalid board state:', gameData.boardState);
+        throw new Error('Invalid board state');
+      }
+      
+      if (mountedRef.current) {
+        setBoard(gameData.boardState);
+        setScore(gameData.currentScore || 0);
+        setMovesMade(gameData.moveHistory?.length || 0);
+        setWordsFormed(gameData.moveHistory?.length || 0);
+        setGameStatus(gameData.status === 'completed' ? 'won' : 'playing');
+      }
+      
+      console.log('[Game] Game loaded successfully');
+    } catch (err: any) {
+      console.error('[Game] Error loading game:', err);
+      if (mountedRef.current) {
+        setError(err.message || 'Failed to load game. Starting new game instead.');
+        // Safe fallback: Start new game instead of crashing
+        setTimeout(() => {
+          if (mountedRef.current) {
+            startNewGame();
+          }
+        }, 1000);
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [startNewGame]);
+
   useEffect(() => {
     console.log('[Game] GameScreen mounted with params:', params);
     
@@ -256,7 +256,7 @@ export default function GameScreen() {
     } else {
       startNewGame();
     }
-  }, [gameId, gameMode, loadExistingGame, startNewGame, params]);
+  }, [gameId, gameMode, loadExistingGame, startNewGame, params, gridSize, turnLimit]);
 
   function handleTilePress(row: number, col: number) {
     console.log('[Game] Tile pressed:', row, col);

@@ -1,9 +1,8 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { router } from 'expo-router';
-import * as Updates from 'expo-updates';
 
 interface Props {
   children: React.ReactNode;
@@ -32,7 +31,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
   handleReload = async () => {
     console.log('[ErrorBoundary] Reloading app...');
     try {
-      await Updates.reloadAsync();
+      // Only use expo-updates on native platforms
+      if (Platform.OS !== 'web') {
+        const Updates = await import('expo-updates');
+        await Updates.reloadAsync();
+      } else {
+        // On web, just reload the page
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }
     } catch (err) {
       console.error('[ErrorBoundary] Reload failed:', err);
       // Fallback: Reset error state to try again
