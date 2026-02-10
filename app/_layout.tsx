@@ -10,7 +10,7 @@ import { useColorScheme } from 'react-native';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { RemoteConfigProvider } from '@/contexts/RemoteConfigContext';
 import { MonetizationProvider } from '@/contexts/MonetizationContext';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync();
 
