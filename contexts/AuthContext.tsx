@@ -68,6 +68,11 @@ function openOAuthPopup(provider: string): Promise<string> {
   });
 }
 
+/**
+ * AuthProvider - Manages authentication state and operations
+ * EXPORT: Named export only
+ * Usage: import { AuthProvider } from '@/contexts/AuthContext'
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -255,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * useAuth hook - Access authentication context
+ * EXPORT: Named export only
+ * Usage: import { useAuth } from '@/contexts/AuthContext'
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -262,3 +272,7 @@ export function useAuth() {
   }
   return context;
 }
+
+// Verify exports at module load time
+console.log('[AuthContext] Module loaded, AuthProvider type:', typeof AuthProvider);
+console.log('[AuthContext] Module loaded, useAuth type:', typeof useAuth);

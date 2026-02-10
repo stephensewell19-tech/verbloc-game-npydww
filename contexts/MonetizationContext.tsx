@@ -15,6 +15,11 @@ const MonetizationContext = createContext<MonetizationContextType | undefined>(u
 
 const PREMIUM_STATUS_KEY = '@verbloc_premium_status';
 
+/**
+ * MonetizationProvider - Manages premium subscription state
+ * EXPORT: Named export only
+ * Usage: import { MonetizationProvider } from '@/contexts/MonetizationContext'
+ */
 export function MonetizationProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,6 +88,11 @@ export function MonetizationProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * useMonetization hook - Access monetization context
+ * EXPORT: Named export only
+ * Usage: import { useMonetization } from '@/contexts/MonetizationContext'
+ */
 export function useMonetization() {
   const context = useContext(MonetizationContext);
   if (context === undefined) {
@@ -102,6 +112,10 @@ export function useMonetization() {
   return context;
 }
 
-// Legacy export for backward compatibility
+// Legacy exports for backward compatibility
 export const SuperwallProvider = MonetizationProvider;
 export const useSubscription = useMonetization;
+
+// Verify exports at module load time
+console.log('[MonetizationContext] Module loaded, MonetizationProvider type:', typeof MonetizationProvider);
+console.log('[MonetizationContext] Module loaded, useMonetization type:', typeof useMonetization);

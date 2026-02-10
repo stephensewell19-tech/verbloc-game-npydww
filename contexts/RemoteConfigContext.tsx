@@ -13,6 +13,11 @@ interface RemoteConfigContextType {
 
 const RemoteConfigContext = createContext<RemoteConfigContextType | undefined>(undefined);
 
+/**
+ * RemoteConfigProvider - Manages remote configuration and feature flags
+ * EXPORT: Named export only
+ * Usage: import { RemoteConfigProvider } from '@/contexts/RemoteConfigContext'
+ */
 export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<RemoteConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,6 +148,11 @@ export function RemoteConfigProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * useRemoteConfig hook - Access remote configuration context
+ * EXPORT: Named export only
+ * Usage: import { useRemoteConfig } from '@/contexts/RemoteConfigContext'
+ */
 export function useRemoteConfig() {
   const context = useContext(RemoteConfigContext);
   if (context === undefined) {
@@ -150,3 +160,7 @@ export function useRemoteConfig() {
   }
   return context;
 }
+
+// Verify exports at module load time
+console.log('[RemoteConfigContext] Module loaded, RemoteConfigProvider type:', typeof RemoteConfigProvider);
+console.log('[RemoteConfigContext] Module loaded, useRemoteConfig type:', typeof useRemoteConfig);

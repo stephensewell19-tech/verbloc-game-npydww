@@ -18,6 +18,10 @@ interface State {
 /**
  * Error Boundary component to catch React errors and display fallback UI
  * Prevents app crashes and provides recovery options
+ * 
+ * EXPORTS: Both named and default export for maximum compatibility
+ * - import { ErrorBoundary } from '@/components/ErrorBoundary'
+ * - import ErrorBoundary from '@/components/ErrorBoundary'
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -94,7 +98,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-// Default export for convenience
+// Default export for convenience - ensures both import styles work
 export default ErrorBoundary;
 
 const styles = StyleSheet.create({
