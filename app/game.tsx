@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { Position, BoardState, PuzzleMode, WinCondition, GameOutcome } from '@/types/game';
@@ -21,7 +22,8 @@ import {
   getPuzzleModeProgress,
 } from '@/utils/gameLogic';
 import { WordEffect } from '@/utils/wordMechanics';
-import Animated, { FadeIn, FadeOut, BounceIn, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { safeFadeIn, safeFadeOut, safeBounceIn, safeZoomIn } from '@/utils/safeAnimations';
 import WordMechanicsInfo from '@/components/WordMechanicsInfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -36,7 +38,7 @@ export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mountedRef = useRef(true);
-  const initializedRef = useRef(false); // ✅ FIXED: Prevent multiple initializations
+  const initializedRef = useRef(false);
   
   const [board, setBoard] = useState<BoardState | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
@@ -82,7 +84,6 @@ export default function GameScreen() {
     turnLimit: gameMode === 'solo' ? turnLimit : undefined,
   };
 
-  // ✅ FIXED: Cleanup on unmount
   useEffect(() => {
     console.log('[Game] GameScreen mounted');
     mountedRef.current = true;
@@ -92,11 +93,9 @@ export default function GameScreen() {
     };
   }, []);
 
-  // ✅ FIXED: Memoize startNewGame with proper dependencies
   const startNewGame = useCallback(async () => {
     console.log('[Game] Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     
-    // Safety check: Validate parameters
     if (!gridSize || gridSize < 3 || gridSize > 15) {
       console.error('[Game] Invalid gridSize:', gridSize, '- using default 7');
     }
@@ -111,16 +110,13 @@ export default function GameScreen() {
         setError(null);
       }
       
-      // Generate initial board with safety checks
       const initialBoard = generateInitialBoard(gridSize || 7);
       
-      // Safety check: Ensure board was generated successfully
       if (!initialBoard || !initialBoard.tiles || !Array.isArray(initialBoard.tiles)) {
         console.error('[Game] Failed to generate initial board');
         throw new Error('Failed to generate game board');
       }
       
-      // Verify board has tiles
       const totalTiles = initialBoard.tiles.flat().length;
       if (totalTiles === 0) {
         console.error('[Game] Generated board has no tiles');
@@ -151,7 +147,6 @@ export default function GameScreen() {
           console.log('[Game] Solo game session created on backend:', response.gameId);
         } catch (err: any) {
           console.error('[Game] Failed to create backend game session:', err);
-          // Don't throw - game can still be played locally
         }
       }
       
@@ -161,19 +156,16 @@ export default function GameScreen() {
       if (mountedRef.current) {
         setError(err.message || 'Failed to start game. Please try again.');
       }
-      // Don't leave user in broken state - show error and allow retry
     } finally {
       if (mountedRef.current) {
         setLoading(false);
       }
     }
-  }, [gridSize, puzzleMode, turnLimit, gameMode]); // ✅ FIXED: Only primitive dependencies
+  }, [gridSize, puzzleMode, turnLimit, gameMode]);
 
-  // ✅ FIXED: Memoize loadExistingGame with proper dependencies
   const loadExistingGame = useCallback(async (id: string) => {
     console.log('[Game] Loading existing game:', id);
     
-    // Safety check: Ensure gameId is valid
     if (!id || typeof id !== 'string' || id.trim() === '') {
       console.error('[Game] Invalid gameId provided:', id);
       if (mountedRef.current) {
@@ -191,7 +183,6 @@ export default function GameScreen() {
       
       const response = await authenticatedGet(`/api/game/${id}`);
       
-      // Safety check: Ensure response has required data
       if (!response || !response.boardState) {
         console.error('[Game] Invalid game data received:', response);
         throw new Error('Invalid game data received from server');
@@ -199,7 +190,6 @@ export default function GameScreen() {
       
       const gameData = response;
       
-      // Safety check: Validate board state
       if (!gameData.boardState.tiles || !Array.isArray(gameData.boardState.tiles)) {
         console.error('[Game] Invalid board state:', gameData.boardState);
         throw new Error('Invalid board state');
@@ -218,7 +208,6 @@ export default function GameScreen() {
       console.error('[Game] Error loading game:', err);
       if (mountedRef.current) {
         setError(err.message || 'Failed to load game. Starting new game instead.');
-        // Safe fallback: Start new game instead of crashing
         setTimeout(() => {
           if (mountedRef.current) {
             startNewGame();
@@ -230,11 +219,9 @@ export default function GameScreen() {
         setLoading(false);
       }
     }
-  }, [startNewGame]); // ✅ FIXED: Only include startNewGame
+  }, [startNewGame]);
 
-  // ✅ FIXED: Initialize game only once with proper guards
   useEffect(() => {
-    // Prevent multiple initializations
     if (initializedRef.current) {
       console.log('[Game] Already initialized, skipping duplicate init');
       return;
@@ -243,10 +230,8 @@ export default function GameScreen() {
     console.log('[Game] GameScreen initializing with params:', params);
     initializedRef.current = true;
     
-    // Navigation guard: Validate required parameters
     if (!gameMode || (gameMode !== 'solo' && gameMode !== 'multiplayer')) {
       console.error('[Game] Invalid gameMode:', gameMode, '- defaulting to solo');
-      // Don't crash - use safe default
     }
     
     if (!gridSize || gridSize < 3 || gridSize > 15) {
@@ -257,12 +242,10 @@ export default function GameScreen() {
       console.error('[Game] Invalid turnLimit:', turnLimit, '- will use default');
     }
     
-    // Remember the mode the player chose
     try {
       setLastPlayedMode(gameMode);
     } catch (modeError) {
       console.error('[Game] Failed to save last played mode:', modeError);
-      // Don't crash - this is optional
     }
     
     if (gameId) {
@@ -270,42 +253,36 @@ export default function GameScreen() {
     } else {
       startNewGame();
     }
-  }, [gameId, gameMode, gridSize, loadExistingGame, params, startNewGame, turnLimit]); // ✅ FIXED: Include all dependencies
+  }, [gameId, gameMode, gridSize, loadExistingGame, params, startNewGame, turnLimit]);
 
   function handleTilePress(row: number, col: number) {
     console.log('[Game] Tile pressed:', row, col);
     
-    // Safety check: Ensure board exists
     if (!board || !board.tiles) {
       console.error('[Game] Cannot press tile - board not initialized');
       setError('Game board not ready. Please restart the game.');
       return;
     }
     
-    // Safety check: Ensure game is in playing state
     if (gameStatus !== 'playing') {
       console.log('[Game] Cannot press tile - game not in playing state:', gameStatus);
       return;
     }
     
-    // Safety check: Validate row and col bounds
     if (row < 0 || row >= board.tiles.length || col < 0 || col >= board.tiles[0].length) {
       console.error('[Game] Invalid tile position:', row, col);
       return;
     }
     
-    // Haptic feedback on tile selection
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (hapticErr) {
       console.error('[Game] Haptic feedback failed:', hapticErr);
-      // Don't crash - haptics are optional
     }
     
     const position = { row, col };
     const tile = board.tiles[row][col];
     
-    // Safety check: Ensure tile exists
     if (!tile) {
       console.error('[Game] Tile not found at position:', row, col);
       return;
@@ -357,7 +334,6 @@ export default function GameScreen() {
     setCurrentWord(newWord);
     console.log('Current word:', newWord);
     
-    // Haptic feedback for word length milestones
     if (newWord.length === 3) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else if (newWord.length >= 6) {
@@ -368,14 +344,12 @@ export default function GameScreen() {
   async function handleSubmitWord() {
     console.log('[Game] Submit word requested:', currentWord);
     
-    // Safety check: Ensure board exists
     if (!board || !board.tiles) {
       console.error('[Game] Cannot submit word - board not initialized');
       setError('Game board not ready. Please restart the game.');
       return;
     }
     
-    // Safety check: Ensure sufficient tiles selected
     if (!selectedPositions || selectedPositions.length < 3) {
       console.log('[Game] Cannot submit: insufficient tiles selected');
       setError('Select at least 3 tiles to form a word');
@@ -387,14 +361,12 @@ export default function GameScreen() {
       return;
     }
     
-    // Safety check: Ensure word exists
     if (!currentWord || typeof currentWord !== 'string' || currentWord.trim() === '') {
       console.error('[Game] Cannot submit: invalid word');
       setError('Invalid word');
       return;
     }
     
-    // Prevent double submission
     if (submitting) {
       console.log('[Game] Already submitting word, ignoring duplicate request');
       return;
@@ -414,13 +386,11 @@ export default function GameScreen() {
         return;
       }
       
-      // SUCCESS HAPTIC - Valid word!
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       const wordScore = calculateScore(currentWord, selectedPositions, board);
       console.log('Word score:', wordScore);
       
-      // Show score popup with animation
       setLastWordScore(wordScore);
       setShowScorePop(true);
       setTimeout(() => setShowScorePop(false), 2000);
@@ -436,7 +406,6 @@ export default function GameScreen() {
       
       console.log('Word effects applied:', effects.length, 'effects');
       
-      // Combo tracking for positive reinforcement
       const newComboCount = comboCount + 1;
       setComboCount(newComboCount);
       
@@ -451,7 +420,6 @@ export default function GameScreen() {
         setShowEffects(true);
         setLastWordEffect(effects[0]);
         
-        // Extra haptic for special effects
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         
         setTimeout(() => {
@@ -518,7 +486,6 @@ export default function GameScreen() {
     const isSpecialEvent = params.mode === 'specialEvent';
     const eventId = params.eventId as string | undefined;
     
-    // Calculate XP earned
     const { calculateXpEarned } = await import('@/utils/gameLogic');
     
     let source: 'solo' | 'multiplayer' | 'dailyChallenge' | 'specialEvent' = 'solo';
@@ -542,7 +509,6 @@ export default function GameScreen() {
     
     console.log('[Progression] XP earned:', xpEarned, 'from source:', source);
     
-    // Award XP to player
     try {
       const xpResult = await authenticatedPost('/api/player/progress/award-xp', {
         xp: xpEarned,
@@ -552,7 +518,6 @@ export default function GameScreen() {
       
       console.log('[Progression] XP awarded:', xpResult);
       
-      // Store XP data for modal display
       setXpEarned(xpEarned);
       setLeveledUp(xpResult.leveledUp || false);
       setNewLevel(xpResult.newLevel);
@@ -633,7 +598,7 @@ export default function GameScreen() {
     console.log('Starting new game');
     setShowCompletionModal(false);
     setComboCount(0);
-    initializedRef.current = false; // ✅ FIXED: Reset initialization flag
+    initializedRef.current = false;
     startNewGame();
   }
 
@@ -799,7 +764,6 @@ export default function GameScreen() {
           </View>
         )}
 
-        {/* Score and Progress */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Score</Text>
@@ -828,7 +792,6 @@ export default function GameScreen() {
           )}
         </View>
 
-        {/* Win Condition Display with Progress Meter */}
         <WinConditionDisplay
           puzzleMode={puzzleMode}
           current={progress.current}
@@ -838,25 +801,22 @@ export default function GameScreen() {
           turnsLeft={gameMode === 'solo' ? turnsLeft : undefined}
         />
 
-        {/* Score Popup Animation */}
         {showScorePop && lastWordScore !== null && (
-          <Animated.View entering={BounceIn} exiting={FadeOut} style={styles.scorePopup}>
+          <Animated.View entering={safeBounceIn()} exiting={safeFadeOut()} style={styles.scorePopup}>
             <Text style={styles.scorePopupText}>+{lastWordScore}</Text>
             <Text style={styles.scorePopupLabel}>points!</Text>
           </Animated.View>
         )}
 
-        {/* Combo Indicator */}
         {showCombo && (
-          <Animated.View entering={ZoomIn} exiting={FadeOut} style={styles.comboContainer}>
+          <Animated.View entering={safeZoomIn()} exiting={safeFadeOut()} style={styles.comboContainer}>
             <Text style={styles.comboText}>{comboCount}x COMBO!</Text>
             <Text style={styles.comboSubtext}>You&apos;re on fire! 🔥</Text>
           </Animated.View>
         )}
 
-        {/* Word Effects Display */}
         {showEffects && currentEffects.length > 0 && (
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.effectsContainer}>
+          <Animated.View entering={safeFadeIn()} exiting={safeFadeOut()} style={styles.effectsContainer}>
             <Text style={styles.effectsTitle}>Word Effects Triggered!</Text>
             {currentEffects.map((effect, index) => (
               <View key={index} style={styles.effectItem}>
@@ -872,12 +832,10 @@ export default function GameScreen() {
           </Animated.View>
         )}
 
-        {/* Instructions */}
         <View style={styles.instructionsContainer}>
           <Text style={styles.instructionsText}>{instructionsText}</Text>
         </View>
 
-        {/* Current Word Display */}
         {currentWord && (
           <View style={styles.currentWordContainer}>
             <Text style={styles.currentWordLabel}>Current Word:</Text>
@@ -886,7 +844,6 @@ export default function GameScreen() {
           </View>
         )}
 
-        {/* Game Board */}
         <GameBoard
           tiles={board.tiles}
           selectedPositions={selectedPositions}
@@ -894,9 +851,8 @@ export default function GameScreen() {
           disabled={gameStatus !== 'playing' || submitting}
         />
 
-        {/* Error Message */}
         {error && (
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.errorBanner}>
+          <Animated.View entering={safeFadeIn()} exiting={safeFadeOut()} style={styles.errorBanner}>
             <IconSymbol
               ios_icon_name="exclamationmark.circle"
               android_material_icon_name="error"
@@ -907,7 +863,6 @@ export default function GameScreen() {
           </Animated.View>
         )}
 
-        {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, styles.clearButton]}
@@ -954,7 +909,6 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
-      {/* Game Completion Modal with End-of-Run Summary */}
       <GameCompletionModal
         visible={showCompletionModal}
         status={gameStatus}
@@ -973,7 +927,6 @@ export default function GameScreen() {
         onBackToHome={handleBackToHome}
       />
 
-      {/* Word Mechanics Info Modal */}
       <WordMechanicsInfo
         visible={showMechanicsInfo}
         onClose={() => setShowMechanicsInfo(false)}

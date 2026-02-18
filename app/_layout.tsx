@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { RemoteConfigProvider } from '@/contexts/RemoteConfigContext';
 import { MonetizationProvider } from '@/contexts/MonetizationContext';
@@ -35,6 +35,41 @@ if (typeof MonetizationProvider === 'undefined') {
 }
 
 SplashScreen.preventAutoHideAsync();
+
+// ✅ CRITICAL FIX: Global error handler for Hermes exceptions
+// This captures unhandled JS errors that cause SIGABRT crashes
+if (typeof ErrorUtils !== 'undefined') {
+  const originalHandler = ErrorUtils.getGlobalHandler();
+  
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    console.error('[GlobalErrorHandler] Caught error:', {
+      message: error.message,
+      stack: error.stack,
+      isFatal,
+      platform: Platform.OS,
+    });
+    
+    // Log to error logger for visibility
+    try {
+      const { logError } = require('@/utils/errorLogger');
+      logError(error, {
+        isFatal,
+        type: 'GlobalJS',
+        platform: Platform.OS,
+        context: 'RootLayout',
+      });
+    } catch (logErr) {
+      console.error('[GlobalErrorHandler] Failed to log error:', logErr);
+    }
+    
+    // Call original handler to maintain default behavior
+    if (originalHandler) {
+      originalHandler(error, isFatal);
+    }
+  });
+  
+  console.log('[RootLayout] Global error handler installed');
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

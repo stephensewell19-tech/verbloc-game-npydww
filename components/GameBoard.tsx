@@ -2,15 +2,18 @@
 import { colors } from '@/styles/commonStyles';
 import Animated, { 
   useAnimatedStyle, 
-  withSpring, 
-  withSequence,
-  withTiming,
   useSharedValue,
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
+import {
+  safeWithSpring,
+  safeWithTiming,
+  safeWithSequence,
+  logAnimationError,
+} from '@/utils/safeAnimations';
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Tile, Position } from '@/types/game';
 
 interface GameBoardProps {
@@ -43,54 +46,54 @@ function resolveImageSource(source: string | number | any): any {
 }
 
 function TileComponent({ tile, size, selected, order, onPress, disabled }: TileComponentProps) {
-  // ✅ FIXED: All hooks are now called unconditionally at the top level
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const glow = useSharedValue(0);
 
-  // Animation effect for selection
   useEffect(() => {
     try {
       if (selected) {
-        glow.value = withSequence(
-          withTiming(1, { duration: 300 }),
-          withTiming(0.7, { duration: 500 })
+        glow.value = safeWithSequence(
+          safeWithTiming(1, { duration: 300 }),
+          safeWithTiming(0.7, { duration: 500 })
         );
       } else {
-        glow.value = withTiming(0, { duration: 200 });
+        glow.value = safeWithTiming(0, { duration: 200 });
       }
     } catch (animError) {
-      console.error('[TileComponent] Animation error:', animError);
-      // Don't crash - animations are optional
+      logAnimationError('TileComponent selection animation', animError);
     }
   }, [selected, glow]);
 
-  // Animated style for tile
   const animatedStyle = useAnimatedStyle(() => {
-    const glowOpacity = interpolate(
-      glow.value,
-      [0, 1],
-      [0, 0.8],
-      Extrapolate.CLAMP
-    );
+    try {
+      const glowOpacity = interpolate(
+        glow.value,
+        [0, 1],
+        [0, 0.8],
+        Extrapolate.CLAMP
+      );
 
-    const glowRadius = interpolate(
-      glow.value,
-      [0, 1],
-      [0, 12],
-      Extrapolate.CLAMP
-    );
+      const glowRadius = interpolate(
+        glow.value,
+        [0, 1],
+        [0, 12],
+        Extrapolate.CLAMP
+      );
 
-    return {
-      transform: [
-        { scale: scale.value },
-        { rotate: `${rotation.value}deg` },
-      ],
-      boxShadow: `0px 4px ${glowRadius}px rgba(0, 0, 0, ${glowOpacity})`,
-    };
+      return {
+        transform: [
+          { scale: scale.value },
+          { rotate: `${rotation.value}deg` },
+        ],
+        boxShadow: `0px 4px ${glowRadius}px rgba(0, 0, 0, ${glowOpacity})`,
+      };
+    } catch (styleError) {
+      logAnimationError('TileComponent animated style', styleError);
+      return {};
+    }
   });
 
-  // Safety check: Ensure tile exists (after all hooks are called)
   if (!tile) {
     console.error('[TileComponent] Tile is null or undefined');
     return (
@@ -100,7 +103,6 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     );
   }
   
-  // Safety check: Ensure size is valid
   if (!size || size <= 0 || !isFinite(size)) {
     console.error('[TileComponent] Invalid size:', size);
     return null;
@@ -111,27 +113,23 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
     
     try {
       if (disabled || tile.isLocked) {
-        // Shake animation for locked tiles
-        rotation.value = withSequence(
-          withSpring(-5, { damping: 10 }),
-          withSpring(5, { damping: 10 }),
-          withSpring(0, { damping: 10 })
+        rotation.value = safeWithSequence(
+          safeWithSpring(-5, { damping: 10 }),
+          safeWithSpring(5, { damping: 10 }),
+          safeWithSpring(0, { damping: 10 })
         );
         return;
       }
 
-      // Pop animation on press
-      scale.value = withSequence(
-        withSpring(0.85, { damping: 10 }),
-        withSpring(1.05, { damping: 8 }),
-        withSpring(1, { damping: 10 })
+      scale.value = safeWithSequence(
+        safeWithSpring(0.85, { damping: 10 }),
+        safeWithSpring(1.05, { damping: 8 }),
+        safeWithSpring(1, { damping: 10 })
       );
     } catch (animError) {
-      console.error('[TileComponent] Animation error:', animError);
-      // Don't crash - animations are optional
+      logAnimationError('TileComponent press animation', animError);
     }
 
-    // Safety check: Ensure onPress exists
     if (typeof onPress === 'function') {
       try {
         onPress();
@@ -227,12 +225,9 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
         ]}
       >
         {selected && order > 0 && (
-          <Animated.View 
-            entering={withSpring}
-            style={styles.orderBadge}
-          >
+          <View style={styles.orderBadge}>
             <Text style={styles.orderText}>{order}</Text>
-          </Animated.View>
+          </View>
         )}
 
         <Text
@@ -263,7 +258,6 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
 export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
   console.log('[GameBoard] Rendering board with', tiles?.length || 0, 'rows');
   
-  // Safety check: Ensure tiles exist and are valid
   if (!tiles || !Array.isArray(tiles) || tiles.length === 0) {
     console.error('[GameBoard] Invalid tiles data:', tiles);
     return (
@@ -276,7 +270,6 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
     );
   }
   
-  // Safety check: Ensure all rows are valid arrays
   const invalidRows = tiles.filter(row => !row || !Array.isArray(row) || row.length === 0);
   if (invalidRows.length > 0) {
     console.error('[GameBoard] Invalid rows detected:', invalidRows.length);
@@ -295,7 +288,6 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
   const availableWidth = screenWidth - (BOARD_PADDING * 2);
   const tileSize = (availableWidth - (TILE_GAP * (boardSize - 1))) / boardSize;
   
-  // Safety check: Ensure tileSize is valid
   if (!tileSize || tileSize <= 0 || !isFinite(tileSize)) {
     console.error('[GameBoard] Invalid tile size calculated:', tileSize);
     return (
@@ -328,7 +320,6 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
       {tiles.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.row}>
           {row.map((tile, colIndex) => {
-            // Safety check: Ensure tile exists
             if (!tile) {
               console.error('[GameBoard] Missing tile at', rowIndex, colIndex);
               return (

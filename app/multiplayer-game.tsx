@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +27,8 @@ import {
   Position,
   Tile,
 } from '@/types/game';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { safeFadeIn, safeFadeOut } from '@/utils/safeAnimations';
 
 export default function MultiplayerGameScreen() {
   const router = useRouter();
@@ -48,13 +50,11 @@ export default function MultiplayerGameScreen() {
 
   useEffect(() => {
     if (gameId) {
-      // Remember that player chose multiplayer
       setLastPlayedMode('multiplayer');
       
       loadGame();
       loadTurnStatus();
       
-      // Poll for updates every 5 seconds for async games, 2 seconds for live games
       const pollInterval = setInterval(() => {
         loadGame();
         loadTurnStatus();
@@ -67,14 +67,12 @@ export default function MultiplayerGameScreen() {
         }
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, turnStatus?.isLiveMatch]);
 
   useEffect(() => {
     if (turnStatus && turnStatus.isLiveMatch && turnStatus.turnTimeRemaining) {
       setTurnTimeRemaining(turnStatus.turnTimeRemaining);
       
-      // Start countdown timer
       if (timerInterval.current) {
         clearInterval(timerInterval.current);
       }
@@ -100,7 +98,6 @@ export default function MultiplayerGameScreen() {
       setGame(response);
       setLoading(false);
       
-      // Check if game is completed and this is a daily challenge
       if (response.status === 'completed') {
         const isDailyChallenge = params.dailyChallenge === 'true';
         const challengeId = params.challengeId as string | undefined;
@@ -108,7 +105,6 @@ export default function MultiplayerGameScreen() {
         if (isDailyChallenge && challengeId) {
           console.log('[DailyChallenge] Multiplayer game completed, completing challenge:', challengeId);
           
-          // Find current player's score
           const currentPlayer = response.players.find(p => p.isCurrentTurn);
           const playerScore = currentPlayer?.score || 0;
           
@@ -147,7 +143,6 @@ export default function MultiplayerGameScreen() {
   const handleTilePress = (row: number, col: number) => {
     console.log('[MultiplayerGame] Tile pressed:', row, col);
     
-    // Safety check: Ensure game exists
     if (!game || !game.boardState || !game.boardState.tiles) {
       console.error('[MultiplayerGame] Cannot press tile - game not initialized');
       setAlertModal({
@@ -158,7 +153,6 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    // Safety check: Validate turn status
     if (!turnStatus) {
       console.error('[MultiplayerGame] Cannot press tile - turn status not loaded');
       setAlertModal({
@@ -179,13 +173,11 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    // Safety check: Validate row and col bounds
     if (row < 0 || row >= game.boardState.tiles.length || col < 0 || col >= game.boardState.tiles[0].length) {
       console.error('[MultiplayerGame] Invalid tile position:', row, col);
       return;
     }
     
-    // Safety check: Ensure tile exists
     const tile = game.boardState.tiles[row][col];
     if (!tile) {
       console.error('[MultiplayerGame] Tile not found at position:', row, col);
@@ -198,10 +190,8 @@ export default function MultiplayerGameScreen() {
     );
 
     if (existingIndex >= 0) {
-      // Deselect
       setSelectedPositions(selectedPositions.filter((_, i) => i !== existingIndex));
     } else {
-      // Select
       setSelectedPositions([...selectedPositions, position]);
     }
   };
@@ -209,7 +199,6 @@ export default function MultiplayerGameScreen() {
   const handleSubmitWord = async () => {
     console.log('[MultiplayerGame] Submit word requested');
     
-    // Safety check: Validate selected positions
     if (!selectedPositions || selectedPositions.length < 3) {
       console.log('[MultiplayerGame] Insufficient tiles selected');
       setAlertModal({
@@ -220,7 +209,6 @@ export default function MultiplayerGameScreen() {
       return;
     }
 
-    // Safety check: Ensure game exists
     if (!game || !game.boardState || !game.boardState.tiles) {
       console.error('[MultiplayerGame] Cannot submit - game not initialized');
       setAlertModal({
@@ -231,7 +219,6 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    // Safety check: Ensure gameId exists
     if (!gameId || typeof gameId !== 'string') {
       console.error('[MultiplayerGame] Invalid gameId:', gameId);
       setAlertModal({
@@ -242,7 +229,6 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    // Prevent double submission
     if (submitting) {
       console.log('[MultiplayerGame] Already submitting, ignoring duplicate request');
       return;
@@ -252,10 +238,8 @@ export default function MultiplayerGameScreen() {
     setError('');
 
     try {
-      // Build word from selected positions with safety checks
       const word = selectedPositions
         .map((pos) => {
-          // Safety check: Validate position bounds
           if (pos.row < 0 || pos.row >= game.boardState.tiles.length ||
               pos.col < 0 || pos.col >= game.boardState.tiles[0].length) {
             console.error('[MultiplayerGame] Invalid position:', pos);
@@ -264,7 +248,6 @@ export default function MultiplayerGameScreen() {
           
           const tile = game.boardState.tiles[pos.row][pos.col];
           
-          // Safety check: Ensure tile exists
           if (!tile || !tile.letter) {
             console.error('[MultiplayerGame] Tile missing at position:', pos);
             throw new Error('Invalid tile');
@@ -279,15 +262,13 @@ export default function MultiplayerGameScreen() {
       const response = await authenticatedPost(`/api/game/multiplayer/${gameId}/move`, {
         word,
         positions: selectedPositions,
-        newBoardState: game.boardState, // In real implementation, apply effects first
+        newBoardState: game.boardState,
       });
 
       console.log('[MultiplayerGame] Move submitted:', response);
 
-      // Clear selection
       setSelectedPositions([]);
 
-      // Reload game state
       await loadGame();
       await loadTurnStatus();
     } catch (err: any) {
@@ -389,7 +370,6 @@ export default function MultiplayerGameScreen() {
       />
 
       <ScrollView style={styles.content}>
-        {/* Turn Status Banner */}
         <View style={[styles.turnBanner, turnStatus.isMyTurn && styles.turnBannerActive]}>
           <View style={styles.turnBannerContent}>
             <IconSymbol
@@ -411,7 +391,6 @@ export default function MultiplayerGameScreen() {
           </View>
         </View>
 
-        {/* Players */}
         <View style={styles.playersContainer}>
           {game.players.map((player) => (
             <View
@@ -442,7 +421,6 @@ export default function MultiplayerGameScreen() {
           ))}
         </View>
 
-        {/* Game Board */}
         <View style={styles.boardContainer}>
           <GameBoard
             tiles={game.boardState.tiles}
@@ -452,15 +430,13 @@ export default function MultiplayerGameScreen() {
           />
         </View>
 
-        {/* Selected Word */}
         {selectedPositions.length > 0 && (
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.wordDisplay}>
+          <Animated.View entering={safeFadeIn()} exiting={safeFadeOut()} style={styles.wordDisplay}>
             <Text style={styles.wordText}>{currentWord}</Text>
             <Text style={styles.wordLength}>{selectedPositions.length} letters</Text>
           </Animated.View>
         )}
 
-        {/* Action Buttons */}
         <View style={styles.actionButtons}>
           {turnStatus.isMyTurn && (
             <React.Fragment>
@@ -501,7 +477,6 @@ export default function MultiplayerGameScreen() {
           )}
         </View>
 
-        {/* Social Buttons */}
         <View style={styles.socialButtons}>
           <TouchableOpacity
             style={styles.socialButton}
@@ -530,7 +505,6 @@ export default function MultiplayerGameScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Recent Reactions & Taunts */}
         {game.reactions.length > 0 && (
           <View style={styles.recentActivity}>
             <Text style={styles.recentActivityTitle}>Recent Reactions</Text>
@@ -558,7 +532,6 @@ export default function MultiplayerGameScreen() {
         )}
       </ScrollView>
 
-      {/* Reaction Picker Modal */}
       <Modal
         visible={showReactions}
         title="Send Reaction"
@@ -578,7 +551,6 @@ export default function MultiplayerGameScreen() {
         </View>
       </Modal>
 
-      {/* Taunt Picker Modal */}
       <Modal
         visible={showTaunts}
         title="Send Taunt"
