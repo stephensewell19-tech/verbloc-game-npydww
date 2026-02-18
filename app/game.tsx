@@ -33,12 +33,14 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import GameCompletionModal from '@/components/GameCompletionModal';
 import * as Haptics from 'expo-haptics';
 import { setLastPlayedMode } from '@/utils/onboarding';
+import { addBreadcrumb, updateGameState, logError } from '@/utils/errorLogger';
 
 export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mountedRef = useRef(true);
   const initializedRef = useRef(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   const [board, setBoard] = useState<BoardState | null>(null);
   const [selectedPositions, setSelectedPositions] = useState<Position[]>([]);
@@ -86,73 +88,140 @@ export default function GameScreen() {
 
   useEffect(() => {
     console.log('[Game] GameScreen mounted');
+    addBreadcrumb('navigation', 'GameScreen mounted', { gameMode, puzzleMode, gridSize });
+    updateGameState({
+      screen: 'game',
+      mode: gameMode,
+      round: 0,
+      score: 0,
+      turnsLeft: turnLimit,
+      selectedTiles: 0,
+      lastAction: 'mount',
+    });
+    
     mountedRef.current = true;
+    
     return () => {
       console.log('[Game] GameScreen unmounting');
+      addBreadcrumb('navigation', 'GameScreen unmounting', {});
       mountedRef.current = false;
+      
+      // CRITICAL: Clear any active timers to prevent state updates after unmount
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        addBreadcrumb('timer', 'Timer cleared on unmount', {});
+      }
     };
   }, []);
 
   const startNewGame = useCallback(async () => {
+    addBreadcrumb('action', 'startNewGame called', { gridSize, puzzleMode, turnLimit, gameMode });
     console.log('[Game] Starting new game with gridSize:', gridSize, 'puzzleMode:', puzzleMode, 'turnLimit:', turnLimit);
     
-    if (!gridSize || gridSize < 3 || gridSize > 15) {
-      console.error('[Game] Invalid gridSize:', gridSize, '- using default 7');
+    // CRITICAL: Validate inputs to prevent crashes from invalid data
+    const safeGridSize = (gridSize && gridSize >= 3 && gridSize <= 15) ? gridSize : 7;
+    const safeTurnLimit = (turnLimit && turnLimit >= 1) ? turnLimit : 20;
+    
+    if (gridSize !== safeGridSize) {
+      console.error('[Game] Invalid gridSize:', gridSize, '- using default', safeGridSize);
+      addBreadcrumb('error', 'Invalid gridSize corrected', { original: gridSize, corrected: safeGridSize });
     }
     
-    if (!turnLimit || turnLimit < 1) {
-      console.error('[Game] Invalid turnLimit:', turnLimit, '- using default 20');
+    if (turnLimit !== safeTurnLimit) {
+      console.error('[Game] Invalid turnLimit:', turnLimit, '- using default', safeTurnLimit);
+      addBreadcrumb('error', 'Invalid turnLimit corrected', { original: turnLimit, corrected: safeTurnLimit });
     }
     
     try {
-      if (mountedRef.current) {
-        setLoading(true);
-        setError(null);
+      if (!mountedRef.current) {
+        console.warn('[Game] Component unmounted, aborting startNewGame');
+        addBreadcrumb('error', 'startNewGame called on unmounted component', {});
+        return;
       }
       
-      const initialBoard = generateInitialBoard(gridSize || 7);
+      setLoading(true);
+      setError(null);
       
+      addBreadcrumb('state', 'Generating initial board', { gridSize: safeGridSize });
+      const initialBoard = generateInitialBoard(safeGridSize);
+      
+      // CRITICAL: Validate board generation
       if (!initialBoard || !initialBoard.tiles || !Array.isArray(initialBoard.tiles)) {
-        console.error('[Game] Failed to generate initial board');
-        throw new Error('Failed to generate game board');
+        const errorMsg = 'Failed to generate game board';
+        console.error('[Game]', errorMsg);
+        logError(new Error(errorMsg), { gridSize: safeGridSize, puzzleMode, gameMode });
+        throw new Error(errorMsg);
       }
       
       const totalTiles = initialBoard.tiles.flat().length;
       if (totalTiles === 0) {
-        console.error('[Game] Generated board has no tiles');
-        throw new Error('Generated board is empty');
+        const errorMsg = 'Generated board is empty';
+        console.error('[Game]', errorMsg);
+        logError(new Error(errorMsg), { gridSize: safeGridSize, totalTiles });
+        throw new Error(errorMsg);
+      }
+      
+      // CRITICAL: Validate each tile to prevent null/undefined crashes
+      const invalidTiles = initialBoard.tiles.flat().filter(t => !t || !t.letter);
+      if (invalidTiles.length > 0) {
+        const errorMsg = `Board has ${invalidTiles.length} invalid tiles`;
+        console.error('[Game]', errorMsg);
+        logError(new Error(errorMsg), { invalidCount: invalidTiles.length, totalTiles });
+        throw new Error(errorMsg);
       }
       
       console.log('[Game] Board generated successfully with', totalTiles, 'tiles');
+      addBreadcrumb('state', 'Board generated successfully', { totalTiles });
       
-      if (mountedRef.current) {
-        setBoard(initialBoard);
-        setScore(0);
-        setMovesMade(0);
-        setWordsFormed(0);
-        setTurnsLeft(turnLimit || 20);
-        setGameStatus('playing');
-        setLastWordEffect(null);
-        setCurrentEffects([]);
-        setEfficiency(0);
-        setError(null);
-        setShowCompletionModal(false);
-        setComboCount(0);
-        setLastWordScore(null);
+      if (!mountedRef.current) {
+        console.warn('[Game] Component unmounted during board generation');
+        return;
       }
+      
+      setBoard(initialBoard);
+      setScore(0);
+      setMovesMade(0);
+      setWordsFormed(0);
+      setTurnsLeft(safeTurnLimit);
+      setGameStatus('playing');
+      setLastWordEffect(null);
+      setCurrentEffects([]);
+      setEfficiency(0);
+      setError(null);
+      setShowCompletionModal(false);
+      setComboCount(0);
+      setLastWordScore(null);
+      
+      updateGameState({
+        screen: 'game',
+        mode: gameMode,
+        round: 1,
+        score: 0,
+        turnsLeft: safeTurnLimit,
+        selectedTiles: 0,
+        lastAction: 'newGame',
+      });
       
       if (gameMode === 'solo') {
         try {
+          addBreadcrumb('network', 'Creating backend game session', {});
           const response = await authenticatedPost('/api/game/solo/start', {});
           console.log('[Game] Solo game session created on backend:', response.gameId);
+          addBreadcrumb('network', 'Backend game session created', { gameId: response.gameId });
         } catch (err: any) {
           console.error('[Game] Failed to create backend game session:', err);
+          addBreadcrumb('error', 'Backend game session creation failed', { error: err.message });
+          // Don't throw - allow offline play
         }
       }
       
-      console.log('[Game] New game started successfully - Solo mode with', turnLimit, 'turns');
+      console.log('[Game] New game started successfully - Solo mode with', safeTurnLimit, 'turns');
+      addBreadcrumb('state', 'New game started successfully', { turnLimit: safeTurnLimit });
     } catch (err: any) {
       console.error('[Game] Error starting game:', err);
+      logError(err, { gridSize: safeGridSize, puzzleMode, turnLimit: safeTurnLimit, gameMode });
+      
       if (mountedRef.current) {
         setError(err.message || 'Failed to start game. Please try again.');
       }
@@ -256,21 +325,27 @@ export default function GameScreen() {
   }, [gameId, gameMode, gridSize, loadExistingGame, params, startNewGame, turnLimit]);
 
   function handleTilePress(row: number, col: number) {
+    addBreadcrumb('action', 'Tile pressed', { row, col, selectedCount: selectedPositions.length });
     console.log('[Game] Tile pressed:', row, col);
     
-    if (!board || !board.tiles) {
+    // CRITICAL: Validate board state before any operations
+    if (!board || !board.tiles || !Array.isArray(board.tiles)) {
       console.error('[Game] Cannot press tile - board not initialized');
+      logError(new Error('Board not initialized on tile press'), { row, col });
       setError('Game board not ready. Please restart the game.');
       return;
     }
     
     if (gameStatus !== 'playing') {
       console.log('[Game] Cannot press tile - game not in playing state:', gameStatus);
+      addBreadcrumb('action', 'Tile press rejected - game not playing', { gameStatus });
       return;
     }
     
-    if (row < 0 || row >= board.tiles.length || col < 0 || col >= board.tiles[0].length) {
-      console.error('[Game] Invalid tile position:', row, col);
+    // CRITICAL: Bounds checking to prevent array out-of-bounds crashes
+    if (row < 0 || row >= board.tiles.length || col < 0 || !board.tiles[0] || col >= board.tiles[0].length) {
+      console.error('[Game] Invalid tile position:', row, col, 'board size:', board.tiles.length);
+      logError(new Error('Tile position out of bounds'), { row, col, boardSize: board.tiles.length });
       return;
     }
     
@@ -278,18 +353,22 @@ export default function GameScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (hapticErr) {
       console.error('[Game] Haptic feedback failed:', hapticErr);
+      addBreadcrumb('error', 'Haptic feedback failed', { error: String(hapticErr) });
     }
     
     const position = { row, col };
     const tile = board.tiles[row][col];
     
-    if (!tile) {
-      console.error('[Game] Tile not found at position:', row, col);
+    // CRITICAL: Validate tile exists and has required properties
+    if (!tile || !tile.letter) {
+      console.error('[Game] Tile not found or invalid at position:', row, col);
+      logError(new Error('Invalid tile at position'), { row, col, tile });
       return;
     }
     
     if (tile.isLocked) {
       console.log('[Game] Cannot select locked tile');
+      addBreadcrumb('action', 'Locked tile press rejected', { row, col });
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch (hapticErr) {
@@ -299,21 +378,42 @@ export default function GameScreen() {
     }
     
     const existingIndex = selectedPositions.findIndex(
-      p => p.row === row && p.col === col
+      p => p && p.row === row && p.col === col
     );
     
     if (existingIndex !== -1) {
       if (existingIndex === selectedPositions.length - 1) {
         console.log('Deselecting last tile');
+        addBreadcrumb('action', 'Tile deselected', { row, col });
         const newPositions = selectedPositions.slice(0, -1);
         setSelectedPositions(newPositions);
-        setCurrentWord(newPositions.map(p => board.tiles[p.row][p.col].letter).join(''));
+        
+        // CRITICAL: Validate positions before accessing tiles
+        const newWord = newPositions
+          .filter(p => p && p.row >= 0 && p.row < board.tiles.length && p.col >= 0 && p.col < board.tiles[0].length)
+          .map(p => board.tiles[p.row][p.col]?.letter || '')
+          .join('');
+        setCurrentWord(newWord);
+        
+        updateGameState({
+          selectedTiles: newPositions.length,
+          lastAction: 'deselect',
+        });
       }
       return;
     }
     
     if (selectedPositions.length > 0) {
       const lastPos = selectedPositions[selectedPositions.length - 1];
+      
+      // CRITICAL: Validate lastPos exists
+      if (!lastPos) {
+        console.error('[Game] Last position is invalid');
+        logError(new Error('Invalid last position'), { selectedPositions });
+        setSelectedPositions([]);
+        return;
+      }
+      
       const rowDiff = Math.abs(lastPos.row - row);
       const colDiff = Math.abs(lastPos.col - col);
       const isAdjacent = (rowDiff === 0 && colDiff === 1) ||
@@ -322,7 +422,12 @@ export default function GameScreen() {
       
       if (!isAdjacent) {
         console.log('Tile not adjacent to last selected tile');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        addBreadcrumb('action', 'Non-adjacent tile rejected', { row, col, lastPos });
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
         return;
       }
     }
@@ -330,28 +435,46 @@ export default function GameScreen() {
     const newPositions = [...selectedPositions, position];
     setSelectedPositions(newPositions);
     
-    const newWord = newPositions.map(p => board.tiles[p.row][p.col].letter).join('');
+    // CRITICAL: Validate all positions before building word
+    const newWord = newPositions
+      .filter(p => p && p.row >= 0 && p.row < board.tiles.length && p.col >= 0 && p.col < board.tiles[0].length)
+      .map(p => board.tiles[p.row][p.col]?.letter || '')
+      .join('');
     setCurrentWord(newWord);
     console.log('Current word:', newWord);
+    addBreadcrumb('state', 'Word updated', { word: newWord, length: newWord.length });
     
-    if (newWord.length === 3) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } else if (newWord.length >= 6) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    updateGameState({
+      selectedTiles: newPositions.length,
+      lastAction: 'select',
+    });
+    
+    try {
+      if (newWord.length === 3) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else if (newWord.length >= 6) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
+    } catch (hapticErr) {
+      console.error('[Game] Haptic feedback failed:', hapticErr);
     }
   }
 
   async function handleSubmitWord() {
+    addBreadcrumb('action', 'Submit word requested', { word: currentWord, selectedCount: selectedPositions.length });
     console.log('[Game] Submit word requested:', currentWord);
     
-    if (!board || !board.tiles) {
+    // CRITICAL: Comprehensive validation before submission
+    if (!board || !board.tiles || !Array.isArray(board.tiles)) {
       console.error('[Game] Cannot submit word - board not initialized');
+      logError(new Error('Board not initialized on submit'), { currentWord });
       setError('Game board not ready. Please restart the game.');
       return;
     }
     
-    if (!selectedPositions || selectedPositions.length < 3) {
+    if (!selectedPositions || !Array.isArray(selectedPositions) || selectedPositions.length < 3) {
       console.log('[Game] Cannot submit: insufficient tiles selected');
+      addBreadcrumb('action', 'Submit rejected - insufficient tiles', { count: selectedPositions?.length || 0 });
       setError('Select at least 3 tiles to form a word');
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -363,56 +486,105 @@ export default function GameScreen() {
     
     if (!currentWord || typeof currentWord !== 'string' || currentWord.trim() === '') {
       console.error('[Game] Cannot submit: invalid word');
+      logError(new Error('Invalid word on submit'), { currentWord, selectedPositions });
       setError('Invalid word');
       return;
     }
     
+    // CRITICAL: Debounce to prevent double-tap crashes
     if (submitting) {
       console.log('[Game] Already submitting word, ignoring duplicate request');
+      addBreadcrumb('action', 'Duplicate submit rejected', { word: currentWord });
       return;
     }
     
     console.log('[Game] Submitting word:', currentWord, 'Turns left:', turnsLeft);
+    addBreadcrumb('action', 'Submitting word', { word: currentWord, turnsLeft, score });
     setSubmitting(true);
     setError(null);
     
     try {
+      // CRITICAL: Validate word before processing
       const isValid = isValidWord(currentWord);
       if (!isValid) {
         console.log('Invalid word:', currentWord);
+        addBreadcrumb('action', 'Invalid word rejected', { word: currentWord });
         setError(`"${currentWord}" is not a valid word`);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
         setSubmitting(false);
         return;
       }
       
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (hapticErr) {
+        console.error('[Game] Haptic feedback failed:', hapticErr);
+      }
       
-      const wordScore = calculateScore(currentWord, selectedPositions, board);
-      console.log('Word score:', wordScore);
+      // CRITICAL: Wrap score calculation in try-catch
+      let wordScore = 0;
+      try {
+        wordScore = calculateScore(currentWord, selectedPositions, board);
+        console.log('Word score:', wordScore);
+        addBreadcrumb('state', 'Word score calculated', { word: currentWord, score: wordScore });
+      } catch (scoreErr: any) {
+        console.error('[Game] Score calculation failed:', scoreErr);
+        logError(scoreErr, { word: currentWord, selectedPositions });
+        throw new Error('Failed to calculate score');
+      }
       
+      // CRITICAL: Safe timer for score popup (clear on unmount)
       setLastWordScore(wordScore);
       setShowScorePop(true);
-      setTimeout(() => setShowScorePop(false), 2000);
+      timerRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          setShowScorePop(false);
+        }
+      }, 2000);
       
-      const { board: updatedBoard, effects } = applyWordEffect(
-        board,
-        selectedPositions,
-        puzzleMode,
-        'player1',
-        currentWord,
-        lastWordEffect
-      );
-      
-      console.log('Word effects applied:', effects.length, 'effects');
+      // CRITICAL: Wrap word effect application in try-catch
+      let updatedBoard: BoardState;
+      let effects: any[] = [];
+      try {
+        const result = applyWordEffect(
+          board,
+          selectedPositions,
+          puzzleMode,
+          'player1',
+          currentWord,
+          lastWordEffect
+        );
+        updatedBoard = result.board;
+        effects = result.effects;
+        console.log('Word effects applied:', effects.length, 'effects');
+        addBreadcrumb('state', 'Word effects applied', { effectCount: effects.length });
+      } catch (effectErr: any) {
+        console.error('[Game] Word effect application failed:', effectErr);
+        logError(effectErr, { word: currentWord, puzzleMode });
+        // Fallback: use original board if effect fails
+        updatedBoard = board;
+        effects = [];
+      }
       
       const newComboCount = comboCount + 1;
       setComboCount(newComboCount);
       
       if (newComboCount >= 3) {
         setShowCombo(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        setTimeout(() => setShowCombo(false), 2000);
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
+        timerRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setShowCombo(false);
+          }
+        }, 2000);
       }
       
       if (effects.length > 0) {
@@ -420,10 +592,16 @@ export default function GameScreen() {
         setShowEffects(true);
         setLastWordEffect(effects[0]);
         
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
         
-        setTimeout(() => {
-          setShowEffects(false);
+        timerRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setShowEffects(false);
+          }
         }, 3000);
       }
       
@@ -432,6 +610,13 @@ export default function GameScreen() {
       const newWordsFormed = wordsFormed + 1;
       const newTurnsLeft = gameMode === 'solo' ? turnsLeft - 1 : turnsLeft;
       const newEfficiency = newScore / newMovesMade;
+      
+      // CRITICAL: Only update state if component is still mounted
+      if (!mountedRef.current) {
+        console.warn('[Game] Component unmounted during word submission');
+        addBreadcrumb('error', 'State update skipped - component unmounted', {});
+        return;
+      }
       
       setBoard(updatedBoard);
       setScore(newScore);
@@ -443,35 +628,70 @@ export default function GameScreen() {
       setCurrentWord('');
       
       console.log('Game state updated - Score:', newScore, 'Moves:', newMovesMade, 'Turns left:', newTurnsLeft, 'Efficiency:', newEfficiency.toFixed(2));
+      addBreadcrumb('state', 'Game state updated after word', { score: newScore, moves: newMovesMade, turnsLeft: newTurnsLeft });
       
-      const outcome = checkWinCondition(
-        updatedBoard,
-        puzzleMode,
-        winCondition,
-        newScore,
-        newMovesMade,
-        gameMode,
-        newTurnsLeft
-      );
+      updateGameState({
+        round: newMovesMade,
+        score: newScore,
+        turnsLeft: newTurnsLeft,
+        selectedTiles: 0,
+        lastAction: 'submitWord',
+      });
       
-      console.log('Win condition check result:', outcome);
+      // CRITICAL: Wrap win condition check in try-catch
+      let outcome;
+      try {
+        outcome = checkWinCondition(
+          updatedBoard,
+          puzzleMode,
+          winCondition,
+          newScore,
+          newMovesMade,
+          gameMode,
+          newTurnsLeft
+        );
+        console.log('Win condition check result:', outcome);
+        addBreadcrumb('state', 'Win condition checked', { outcome });
+      } catch (winErr: any) {
+        console.error('[Game] Win condition check failed:', winErr);
+        logError(winErr, { puzzleMode, score: newScore, moves: newMovesMade });
+        // Fallback: assume game continues
+        outcome = GameOutcome.Playing;
+      }
       
       if (outcome === GameOutcome.Win) {
         console.log('Player won!');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        addBreadcrumb('state', 'Game won', { finalScore: newScore });
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
         await completeGame('won', newScore);
       } else if (outcome === GameOutcome.Loss) {
         console.log('Player lost!');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        addBreadcrumb('state', 'Game lost', { finalScore: newScore });
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch (hapticErr) {
+          console.error('[Game] Haptic feedback failed:', hapticErr);
+        }
         await completeGame('lost', newScore);
       }
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting word:', err);
+      logError(err, { word: currentWord, selectedPositions, gameState: { score, turnsLeft, movesMade } });
       setError('Failed to submit word');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch (hapticErr) {
+        console.error('[Game] Haptic feedback failed:', hapticErr);
+      }
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) {
+        setSubmitting(false);
+      }
     }
   }
 

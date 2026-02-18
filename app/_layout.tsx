@@ -71,6 +71,39 @@ if (typeof ErrorUtils !== 'undefined') {
   console.log('[RootLayout] Global error handler installed');
 }
 
+// ✅ CRITICAL FIX: Global unhandled promise rejection handler
+// This captures async errors that would otherwise crash the app
+if (typeof global !== 'undefined') {
+  const originalRejectionHandler = global.onunhandledrejection;
+  
+  global.onunhandledrejection = (event: any) => {
+    console.error('[UnhandledRejection] Caught promise rejection:', {
+      reason: event.reason,
+      promise: event.promise,
+      platform: Platform.OS,
+    });
+    
+    // Log to error logger
+    try {
+      const { logError } = require('@/utils/errorLogger');
+      logError(event.reason || new Error('Unhandled promise rejection'), {
+        type: 'UnhandledRejection',
+        platform: Platform.OS,
+        context: 'RootLayout',
+      });
+    } catch (logErr) {
+      console.error('[UnhandledRejection] Failed to log error:', logErr);
+    }
+    
+    // Call original handler if it exists
+    if (originalRejectionHandler) {
+      originalRejectionHandler(event);
+    }
+  };
+  
+  console.log('[RootLayout] Unhandled rejection handler installed');
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({

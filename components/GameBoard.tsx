@@ -258,8 +258,11 @@ function TileComponent({ tile, size, selected, order, onPress, disabled }: TileC
 export default function GameBoard({ tiles, selectedPositions, onTilePress, disabled }: GameBoardProps) {
   console.log('[GameBoard] Rendering board with', tiles?.length || 0, 'rows');
   
+  // CRITICAL: Comprehensive validation to prevent crashes
   if (!tiles || !Array.isArray(tiles) || tiles.length === 0) {
     console.error('[GameBoard] Invalid tiles data:', tiles);
+    const { logError } = require('@/utils/errorLogger');
+    logError(new Error('GameBoard received invalid tiles'), { tiles: typeof tiles });
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
@@ -270,13 +273,33 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
     );
   }
   
+  // CRITICAL: Validate each row
   const invalidRows = tiles.filter(row => !row || !Array.isArray(row) || row.length === 0);
   if (invalidRows.length > 0) {
     console.error('[GameBoard] Invalid rows detected:', invalidRows.length);
+    const { logError } = require('@/utils/errorLogger');
+    logError(new Error('GameBoard has invalid rows'), { invalidCount: invalidRows.length, totalRows: tiles.length });
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Board corrupted</Text>
+          <Text style={styles.errorSubtext}>Please restart the game</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  // CRITICAL: Validate all tiles have required properties
+  const allTiles = tiles.flat();
+  const invalidTiles = allTiles.filter(t => !t || !t.letter || typeof t.row !== 'number' || typeof t.col !== 'number');
+  if (invalidTiles.length > 0) {
+    console.error('[GameBoard] Invalid tiles detected:', invalidTiles.length, 'out of', allTiles.length);
+    const { logError } = require('@/utils/errorLogger');
+    logError(new Error('GameBoard has invalid tiles'), { invalidCount: invalidTiles.length, totalTiles: allTiles.length });
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Board data corrupted</Text>
           <Text style={styles.errorSubtext}>Please restart the game</Text>
         </View>
       </View>
@@ -288,8 +311,11 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
   const availableWidth = screenWidth - (BOARD_PADDING * 2);
   const tileSize = (availableWidth - (TILE_GAP * (boardSize - 1))) / boardSize;
   
+  // CRITICAL: Validate calculated tile size
   if (!tileSize || tileSize <= 0 || !isFinite(tileSize)) {
-    console.error('[GameBoard] Invalid tile size calculated:', tileSize);
+    console.error('[GameBoard] Invalid tile size calculated:', tileSize, 'screenWidth:', screenWidth, 'boardSize:', boardSize);
+    const { logError } = require('@/utils/errorLogger');
+    logError(new Error('Invalid tile size calculated'), { tileSize, screenWidth, boardSize });
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
@@ -304,48 +330,72 @@ export default function GameBoard({ tiles, selectedPositions, onTilePress, disab
     if (!selectedPositions || !Array.isArray(selectedPositions)) {
       return false;
     }
-    return selectedPositions.some(pos => pos && pos.row === row && pos.col === col);
+    return selectedPositions.some(pos => pos && typeof pos.row === 'number' && typeof pos.col === 'number' && pos.row === row && pos.col === col);
   }
 
   function getSelectionOrder(row: number, col: number): number {
     if (!selectedPositions || !Array.isArray(selectedPositions)) {
       return 0;
     }
-    const index = selectedPositions.findIndex(pos => pos && pos.row === row && pos.col === col);
+    const index = selectedPositions.findIndex(pos => pos && typeof pos.row === 'number' && typeof pos.col === 'number' && pos.row === row && pos.col === col);
     return index !== -1 ? index + 1 : 0;
   }
+  
+  // CRITICAL: Wrap onTilePress to catch any errors
+  const safeOnTilePress = (row: number, col: number) => {
+    try {
+      if (typeof onTilePress === 'function') {
+        onTilePress(row, col);
+      } else {
+        console.error('[GameBoard] onTilePress is not a function:', onTilePress);
+      }
+    } catch (err) {
+      console.error('[GameBoard] Error in onTilePress:', err);
+      const { logError } = require('@/utils/errorLogger');
+      logError(err as Error, { row, col, context: 'GameBoard.onTilePress' });
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {tiles.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((tile, colIndex) => {
-            if (!tile) {
-              console.error('[GameBoard] Missing tile at', rowIndex, colIndex);
+      {tiles.map((row, rowIndex) => {
+        // CRITICAL: Validate row before rendering
+        if (!row || !Array.isArray(row)) {
+          console.error('[GameBoard] Invalid row at index', rowIndex);
+          return null;
+        }
+        
+        return (
+          <View key={rowIndex} style={styles.row}>
+            {row.map((tile, colIndex) => {
+              // CRITICAL: Validate tile before rendering
+              if (!tile || !tile.letter) {
+                console.error('[GameBoard] Missing or invalid tile at', rowIndex, colIndex);
+                return (
+                  <View 
+                    key={`${rowIndex}-${colIndex}`} 
+                    style={[styles.tile, { width: tileSize, height: tileSize, backgroundColor: '#333' }]}
+                  >
+                    <Text style={styles.errorText}>?</Text>
+                  </View>
+                );
+              }
+              
               return (
-                <View 
-                  key={`${rowIndex}-${colIndex}`} 
-                  style={[styles.tile, { width: tileSize, height: tileSize, backgroundColor: '#333' }]}
-                >
-                  <Text style={styles.errorText}>?</Text>
-                </View>
+                <TileComponent
+                  key={`${rowIndex}-${colIndex}`}
+                  tile={tile}
+                  size={tileSize}
+                  selected={isTileSelected(rowIndex, colIndex)}
+                  order={getSelectionOrder(rowIndex, colIndex)}
+                  onPress={() => safeOnTilePress(rowIndex, colIndex)}
+                  disabled={disabled}
+                />
               );
-            }
-            
-            return (
-              <TileComponent
-                key={`${rowIndex}-${colIndex}`}
-                tile={tile}
-                size={tileSize}
-                selected={isTileSelected(rowIndex, colIndex)}
-                order={getSelectionOrder(rowIndex, colIndex)}
-                onPress={() => onTilePress(rowIndex, colIndex)}
-                disabled={disabled}
-              />
-            );
-          })}
-        </View>
-      ))}
+            })}
+          </View>
+        );
+      })}
     </View>
   );
 }

@@ -1,4 +1,3 @@
-
 // Global error logging for runtime errors
 // Captures console.log/warn/error and sends to Natively server for AI debugging
 
@@ -7,6 +6,117 @@ declare const __DEV__: boolean;
 
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+
+// ============================================
+// CRASH BREADCRUMBS - Track user actions and game state
+// ============================================
+
+interface Breadcrumb {
+  timestamp: string;
+  type: 'action' | 'state' | 'navigation' | 'timer' | 'network' | 'error';
+  message: string;
+  data?: Record<string, any>;
+}
+
+const breadcrumbs: Breadcrumb[] = [];
+const MAX_BREADCRUMBS = 100;
+
+export function addBreadcrumb(type: Breadcrumb['type'], message: string, data?: Record<string, any>) {
+  const breadcrumb: Breadcrumb = {
+    timestamp: new Date().toISOString(),
+    type,
+    message,
+    data,
+  };
+  
+  breadcrumbs.push(breadcrumb);
+  
+  // Keep only last MAX_BREADCRUMBS
+  if (breadcrumbs.length > MAX_BREADCRUMBS) {
+    breadcrumbs.shift();
+  }
+  
+  // Log breadcrumb in dev mode
+  if (__DEV__) {
+    console.log(`[Breadcrumb:${type}] ${message}`, data || '');
+  }
+}
+
+export function getBreadcrumbs(): Breadcrumb[] {
+  return [...breadcrumbs];
+}
+
+export function getRecentBreadcrumbs(count: number = 25): Breadcrumb[] {
+  return breadcrumbs.slice(-count);
+}
+
+export function clearBreadcrumbs() {
+  breadcrumbs.length = 0;
+}
+
+// ============================================
+// GAME STATE TRACKING - Monitor current game state
+// ============================================
+
+interface GameStateSnapshot {
+  screen: string;
+  mode: string | null;
+  round: number;
+  score: number;
+  turnsLeft: number;
+  selectedTiles: number;
+  lastAction: string;
+  timestamp: string;
+}
+
+let currentGameState: GameStateSnapshot | null = null;
+
+export function updateGameState(state: Partial<GameStateSnapshot>) {
+  currentGameState = {
+    ...currentGameState,
+    ...state,
+    timestamp: new Date().toISOString(),
+  } as GameStateSnapshot;
+  
+  addBreadcrumb('state', 'Game state updated', state);
+}
+
+export function getGameState(): GameStateSnapshot | null {
+  return currentGameState ? { ...currentGameState } : null;
+}
+
+export function clearGameState() {
+  currentGameState = null;
+}
+
+// ============================================
+// ERROR LOGGING WITH CONTEXT
+// ============================================
+
+export function logError(error: Error | string, context?: Record<string, any>) {
+  const errorMessage = typeof error === 'string' ? error : error.message;
+  const errorStack = typeof error === 'string' ? '' : error.stack;
+  
+  const errorData = {
+    message: errorMessage,
+    stack: errorStack,
+    context,
+    gameState: currentGameState,
+    recentBreadcrumbs: getRecentBreadcrumbs(25),
+    platform: Platform.OS,
+    timestamp: new Date().toISOString(),
+  };
+  
+  console.error('[ERROR]', errorMessage, errorData);
+  
+  addBreadcrumb('error', errorMessage, {
+    stack: errorStack,
+    context,
+  });
+  
+  // Queue for sending to server
+  queueLog('error', JSON.stringify(errorData), errorStack || '');
+}
 
 // Simple debouncing to prevent duplicate logs
 const recentLogs: { [key: string]: boolean } = {};
@@ -26,7 +136,7 @@ const shouldMuteMessage = (message: string): boolean => {
 };
 
 // Queue for batching logs
-let logQueue: Array<{ level: string; message: string; source: string; timestamp: string; platform: string }>[] = [];
+let logQueue: Array<{ level: string; message: string; source: string; timestamp: string; platform: string }> = [];
 let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 const FLUSH_INTERVAL = 500; // Flush every 500ms
 
@@ -273,26 +383,6 @@ const stringifyArgs = (args: any[]): string => {
       return String(arg);
     }
   }).join(' ');
-};
-
-// ✅ NEW: Export logError function for manual error logging
-export const logError = (error: Error, context?: Record<string, any>) => {
-  const message = error.message || 'Unknown error';
-  const stack = error.stack || '';
-  const source = extractSourceLocation(stack);
-  
-  const logMessage = context 
-    ? `${message} | Context: ${JSON.stringify(context)}`
-    : message;
-  
-  queueLog('error', logMessage, source);
-  
-  // Also send to parent window for web iframe mode
-  sendErrorToParent('error', 'Manual Error Log', {
-    message,
-    stack,
-    context,
-  });
 };
 
 export const setupErrorLogging = () => {

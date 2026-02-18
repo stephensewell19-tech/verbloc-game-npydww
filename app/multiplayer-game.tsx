@@ -29,6 +29,7 @@ import {
 } from '@/types/game';
 import Animated from 'react-native-reanimated';
 import { safeFadeIn, safeFadeOut } from '@/utils/safeAnimations';
+import { addBreadcrumb, updateGameState, logError } from '@/utils/errorLogger';
 
 export default function MultiplayerGameScreen() {
   const router = useRouter();
@@ -47,8 +48,22 @@ export default function MultiplayerGameScreen() {
   const [alertModal, setAlertModal] = useState({ visible: false, title: '', message: '' });
   
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    addBreadcrumb('navigation', 'MultiplayerGameScreen mounted', { gameId });
+    updateGameState({
+      screen: 'multiplayer-game',
+      mode: 'multiplayer',
+      round: 0,
+      score: 0,
+      turnsLeft: 0,
+      selectedTiles: 0,
+      lastAction: 'mount',
+    });
+    
+    mountedRef.current = true;
+    
     if (gameId) {
       setLastPlayedMode('multiplayer');
       
@@ -56,14 +71,19 @@ export default function MultiplayerGameScreen() {
       loadTurnStatus();
       
       const pollInterval = setInterval(() => {
-        loadGame();
-        loadTurnStatus();
+        if (mountedRef.current) {
+          loadGame();
+          loadTurnStatus();
+        }
       }, turnStatus?.isLiveMatch ? 2000 : 5000);
 
       return () => {
+        addBreadcrumb('navigation', 'MultiplayerGameScreen unmounting', {});
+        mountedRef.current = false;
         clearInterval(pollInterval);
         if (timerInterval.current) {
           clearInterval(timerInterval.current);
+          timerInterval.current = null;
         }
       };
     }
@@ -141,10 +161,13 @@ export default function MultiplayerGameScreen() {
   };
 
   const handleTilePress = (row: number, col: number) => {
+    addBreadcrumb('action', 'Multiplayer tile pressed', { row, col, selectedCount: selectedPositions.length });
     console.log('[MultiplayerGame] Tile pressed:', row, col);
     
-    if (!game || !game.boardState || !game.boardState.tiles) {
+    // CRITICAL: Validate game state
+    if (!game || !game.boardState || !game.boardState.tiles || !Array.isArray(game.boardState.tiles)) {
       console.error('[MultiplayerGame] Cannot press tile - game not initialized');
+      logError(new Error('Game not initialized on tile press'), { row, col, gameId });
       setAlertModal({
         visible: true,
         title: 'Error',
@@ -155,6 +178,7 @@ export default function MultiplayerGameScreen() {
     
     if (!turnStatus) {
       console.error('[MultiplayerGame] Cannot press tile - turn status not loaded');
+      logError(new Error('Turn status not loaded'), { row, col, gameId });
       setAlertModal({
         visible: true,
         title: 'Error',
@@ -165,6 +189,7 @@ export default function MultiplayerGameScreen() {
     
     if (!turnStatus.isMyTurn) {
       console.log('[MultiplayerGame] Not player\'s turn');
+      addBreadcrumb('action', 'Tile press rejected - not player turn', {});
       setAlertModal({
         visible: true,
         title: 'Not Your Turn',
@@ -173,34 +198,50 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    if (row < 0 || row >= game.boardState.tiles.length || col < 0 || col >= game.boardState.tiles[0].length) {
+    // CRITICAL: Bounds checking
+    if (row < 0 || row >= game.boardState.tiles.length || col < 0 || !game.boardState.tiles[0] || col >= game.boardState.tiles[0].length) {
       console.error('[MultiplayerGame] Invalid tile position:', row, col);
+      logError(new Error('Tile position out of bounds'), { row, col, boardSize: game.boardState.tiles.length });
       return;
     }
     
     const tile = game.boardState.tiles[row][col];
-    if (!tile) {
-      console.error('[MultiplayerGame] Tile not found at position:', row, col);
+    if (!tile || !tile.letter) {
+      console.error('[MultiplayerGame] Tile not found or invalid at position:', row, col);
+      logError(new Error('Invalid tile at position'), { row, col, tile });
       return;
     }
 
     const position = { row, col };
     const existingIndex = selectedPositions.findIndex(
-      (p) => p.row === row && p.col === col
+      (p) => p && p.row === row && p.col === col
     );
 
     if (existingIndex >= 0) {
+      addBreadcrumb('action', 'Multiplayer tile deselected', { row, col });
       setSelectedPositions(selectedPositions.filter((_, i) => i !== existingIndex));
+      updateGameState({
+        selectedTiles: selectedPositions.length - 1,
+        lastAction: 'deselect',
+      });
     } else {
+      addBreadcrumb('action', 'Multiplayer tile selected', { row, col });
       setSelectedPositions([...selectedPositions, position]);
+      updateGameState({
+        selectedTiles: selectedPositions.length + 1,
+        lastAction: 'select',
+      });
     }
   };
 
   const handleSubmitWord = async () => {
+    addBreadcrumb('action', 'Multiplayer submit word requested', { selectedCount: selectedPositions.length });
     console.log('[MultiplayerGame] Submit word requested');
     
-    if (!selectedPositions || selectedPositions.length < 3) {
+    // CRITICAL: Validate inputs
+    if (!selectedPositions || !Array.isArray(selectedPositions) || selectedPositions.length < 3) {
       console.log('[MultiplayerGame] Insufficient tiles selected');
+      addBreadcrumb('action', 'Submit rejected - insufficient tiles', { count: selectedPositions?.length || 0 });
       setAlertModal({
         visible: true,
         title: 'Invalid Word',
@@ -209,8 +250,9 @@ export default function MultiplayerGameScreen() {
       return;
     }
 
-    if (!game || !game.boardState || !game.boardState.tiles) {
+    if (!game || !game.boardState || !game.boardState.tiles || !Array.isArray(game.boardState.tiles)) {
       console.error('[MultiplayerGame] Cannot submit - game not initialized');
+      logError(new Error('Game not initialized on submit'), { gameId });
       setAlertModal({
         visible: true,
         title: 'Error',
@@ -219,8 +261,9 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
-    if (!gameId || typeof gameId !== 'string') {
+    if (!gameId || typeof gameId !== 'string' || gameId.trim() === '') {
       console.error('[MultiplayerGame] Invalid gameId:', gameId);
+      logError(new Error('Invalid gameId on submit'), { gameId });
       setAlertModal({
         visible: true,
         title: 'Error',
@@ -229,8 +272,10 @@ export default function MultiplayerGameScreen() {
       return;
     }
     
+    // CRITICAL: Debounce to prevent double-tap crashes
     if (submitting) {
       console.log('[MultiplayerGame] Already submitting, ignoring duplicate request');
+      addBreadcrumb('action', 'Duplicate submit rejected', {});
       return;
     }
 
@@ -238,11 +283,13 @@ export default function MultiplayerGameScreen() {
     setError('');
 
     try {
+      // CRITICAL: Validate all positions before building word
       const word = selectedPositions
         .map((pos) => {
-          if (pos.row < 0 || pos.row >= game.boardState.tiles.length ||
-              pos.col < 0 || pos.col >= game.boardState.tiles[0].length) {
+          if (!pos || pos.row < 0 || pos.row >= game.boardState.tiles.length ||
+              pos.col < 0 || !game.boardState.tiles[0] || pos.col >= game.boardState.tiles[0].length) {
             console.error('[MultiplayerGame] Invalid position:', pos);
+            logError(new Error('Invalid tile position in word'), { pos, boardSize: game.boardState.tiles.length });
             throw new Error('Invalid tile position');
           }
           
@@ -250,6 +297,7 @@ export default function MultiplayerGameScreen() {
           
           if (!tile || !tile.letter) {
             console.error('[MultiplayerGame] Tile missing at position:', pos);
+            logError(new Error('Invalid tile at position'), { pos, tile });
             throw new Error('Invalid tile');
           }
           
@@ -258,6 +306,7 @@ export default function MultiplayerGameScreen() {
         .join('');
 
       console.log('[MultiplayerGame] Submitting word:', word);
+      addBreadcrumb('action', 'Submitting multiplayer word', { word, gameId });
 
       const response = await authenticatedPost(`/api/game/multiplayer/${gameId}/move`, {
         word,
@@ -266,21 +315,37 @@ export default function MultiplayerGameScreen() {
       });
 
       console.log('[MultiplayerGame] Move submitted:', response);
+      addBreadcrumb('network', 'Multiplayer move submitted', { word });
+
+      if (!mountedRef.current) {
+        console.warn('[MultiplayerGame] Component unmounted during submission');
+        return;
+      }
 
       setSelectedPositions([]);
+      updateGameState({
+        selectedTiles: 0,
+        lastAction: 'submitWord',
+      });
 
       await loadGame();
       await loadTurnStatus();
     } catch (err: any) {
       console.error('[MultiplayerGame] Failed to submit move:', err);
-      setError(err.message || 'Failed to submit move');
-      setAlertModal({
-        visible: true,
-        title: 'Error',
-        message: err.message || 'Failed to submit move. Please try again.',
-      });
+      logError(err, { gameId, selectedPositions });
+      
+      if (mountedRef.current) {
+        setError(err.message || 'Failed to submit move');
+        setAlertModal({
+          visible: true,
+          title: 'Error',
+          message: err.message || 'Failed to submit move. Please try again.',
+        });
+      }
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) {
+        setSubmitting(false);
+      }
     }
   };
 
